@@ -16,7 +16,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       window.location.href = '/'
       return
     }
-    setAuthorized(true)
+    const timer = setTimeout(() => setAuthorized(true), 0)
+    return () => clearTimeout(timer)
   }, [])
 
   const handleSignOut = () => {
@@ -42,14 +43,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen bg-[#050505] text-white flex flex-col md:flex-row">
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-white/10 bg-black/50 p-6 flex flex-col">
-        <div className="flex items-center gap-2 mb-8">
-          <div className="flex font-extrabold text-sm tracking-tight bg-white rounded-lg px-1.5 py-0.5 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
-            <span className="text-[#1a468f]">V</span>
-            <span className="text-[#e0165c]">I</span>
-            <span className="text-[#2d9ddb]">B</span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fab616] to-[#f58220]">E</span>
+        <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center bg-white rounded-lg px-2 py-1.5 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+            <img src="/vibe-logo.jpg" alt="Rotaract District 3233 VIBE Logo" className="h-7 w-auto" />
           </div>
-          <span className="font-bold tracking-tight text-xl">Admin</span>
+          <span className="font-bold tracking-tight text-xl text-white/90">Admin</span>
         </div>
 
         <nav className="flex-1 space-y-2">
@@ -73,8 +71,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-gradient-to-br from-[#050505] to-[#0a0a0f]">
-        {children}
+      <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-br from-[#050505] to-[#0a0a0f] flex flex-col">
+        <div className="flex-1">
+          {children}
+        </div>
+        <footer className="w-full text-center py-4 text-white/40 text-xs mt-auto border-t border-white/5">
+          Copyrights Rotaract District 3233.
+        </footer>
       </main>
     </div>
   )

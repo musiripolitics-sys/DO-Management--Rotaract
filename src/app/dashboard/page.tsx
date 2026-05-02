@@ -16,11 +16,35 @@ type AttendanceRecord = {
   events: { name: string | null; event_date: string | null } | { name: string | null; event_date: string | null }[] | null
 }
 
+type Profile = {
+  full_name?: string | null
+  email?: string | null
+  designation?: string | null
+  club_name?: string | null
+  phone_number?: string | null
+  address?: string | null
+  date_of_birth?: string | null
+  t_shirt_size?: string | null
+  blood_group?: string | null
+  willing_to_donate_blood?: string | null
+  total_points?: number | null
+}
+
 export default function Dashboard() {
-  const [profile, setProfile] = useState<Record<string, unknown> | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([])
   const [rank, setRank] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [now, setNow] = useState<number | null>(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setNow(Date.now()), 0)
+    const interval = setInterval(() => setNow(Date.now()), 60000)
+    return () => {
+      clearTimeout(timer)
+      clearInterval(interval)
+    }
+  }, [])
 
   useEffect(() => {
     async function loadData() {
@@ -53,8 +77,9 @@ export default function Dashboard() {
   }
 
   function timeAgo(iso: string) {
-    const diff = Date.now() - new Date(iso).getTime()
-    const mins = Math.floor(diff / 60000)
+    if (!now) return 'just now'
+    const diff = now - new Date(iso).getTime()
+    const mins = Math.max(0, Math.floor(diff / 60000))
     if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`
     const hrs = Math.floor(mins / 60)
     if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`
@@ -81,15 +106,12 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white pb-20">
+    <div className="min-h-screen flex flex-col bg-[#050505] text-white overflow-x-hidden">
       {/* Top Nav */}
       <nav className="w-full px-6 py-4 flex items-center justify-between border-b border-white/5 bg-black/20 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="flex font-extrabold text-lg tracking-tight bg-white rounded-lg px-2 py-0.5 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
-            <span className="text-[#1a468f]">V</span>
-            <span className="text-[#e0165c]">I</span>
-            <span className="text-[#2d9ddb]">B</span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fab616] to-[#f58220]">E</span>
+          <div className="flex items-center bg-white rounded-lg px-2 py-1.5 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+            <img src="/vibe-logo.jpg" alt="Rotaract District 3233 VIBE Logo" className="h-8 w-auto" />
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-white/70 hover:text-white">
@@ -98,7 +120,7 @@ export default function Dashboard() {
         </Button>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-6 pt-8 space-y-8">
+      <main className="max-w-4xl mx-auto px-6 pt-8 space-y-8 flex-1 w-full">
         
         {/* Header & Stats */}
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -262,6 +284,9 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+      <footer className="w-full text-center py-6 text-white/40 text-xs mt-12 border-t border-white/5">
+        Copyrights Rotaract District 3233.
+      </footer>
     </div>
   )
 }

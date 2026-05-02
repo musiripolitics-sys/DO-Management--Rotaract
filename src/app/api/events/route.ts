@@ -29,16 +29,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, location, event_date, start_time } = body
+    const { name, location, category, event_date, end_date, start_time } = body
 
-    if (!name || !event_date || !start_time) {
+    if (!name || !category || !event_date || !start_time) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
     const supabase = getAdminClient()
     const { data, error } = await supabase
       .from('events')
-      .insert({ name, location: location || null, event_date, start_time })
+      .insert({ name, location: location || null, category, event_date, end_date: end_date || null, start_time })
       .select()
       .single()
 

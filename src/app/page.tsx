@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Loader2, Zap, Trophy, Calendar, MapPin, Clock, Users, Shield } from 'lucide-react'
+import { ArrowRight, Loader2, Zap, Trophy, Calendar, MapPin, Clock, Users, Shield, Medal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -89,17 +89,16 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#050505] text-white overflow-hidden selection:bg-[#e0165c]/30">
-      <div className="absolute top-0 -left-1/4 w-[150%] h-[1000px] bg-gradient-to-br from-[#1a468f]/20 via-[#2d9ddb]/10 to-transparent blur-[120px] rounded-full pointer-events-none -z-10" />
-      <div className="absolute top-[40%] -right-1/4 w-[100%] h-[800px] bg-gradient-to-tl from-[#f58220]/10 via-[#e0165c]/10 to-transparent blur-[100px] rounded-full pointer-events-none -z-10" />
+    <div className="min-h-screen flex flex-col bg-[#050505] text-white selection:bg-[#e0165c]/30 relative">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-0 -left-1/4 w-[150%] h-[1000px] bg-gradient-to-br from-[#1a468f]/20 via-[#2d9ddb]/10 to-transparent blur-[120px] rounded-full" />
+        <div className="absolute top-[40%] -right-1/4 w-[100%] h-[800px] bg-gradient-to-tl from-[#f58220]/10 via-[#e0165c]/10 to-transparent blur-[100px] rounded-full" />
+      </div>
 
       <nav className="w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between border-b border-white/5 relative z-10">
         <div className="flex items-center gap-2">
-          <div className="flex font-extrabold text-2xl tracking-tight bg-white rounded-lg px-3 py-1 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
-            <span className="text-[#1a468f]">V</span>
-            <span className="text-[#e0165c]">I</span>
-            <span className="text-[#2d9ddb]">B</span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fab616] to-[#f58220]">E</span>
+          <div className="flex items-center bg-white rounded-lg px-3 py-1.5 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+            <img src="/vibe-logo.jpg" alt="Rotaract District 3233 VIBE Logo" className="h-10 w-auto" />
           </div>
         </div>
         <div className="hidden sm:flex flex-col items-end gap-2">
@@ -291,14 +290,65 @@ export default function LandingPage() {
                 ) : (
                   <div className="space-y-2">
                     {home.leaderboard.map((u, i) => (
-                      <div key={i} className="flex items-center gap-3 py-1.5">
-                        <div className="font-bold text-white/40 text-sm w-5">{i + 1}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white/90 truncate">{u.full_name || '—'}</p>
-                          <p className="text-xs text-white/40 truncate">{u.club_name || 'No club'}</p>
+                      <motion.div 
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.1, duration: 0.5 }}
+                        key={i} 
+                        className={`flex items-center gap-3 rounded-xl transition-all ${
+                          i === 0 ? 'bg-gradient-to-r from-[#fab616]/10 to-transparent border border-[#fab616]/20 shadow-[0_0_15px_rgba(250,182,22,0.1)] py-2 px-3' :
+                          i === 1 ? 'bg-gradient-to-r from-gray-300/10 to-transparent border border-gray-300/20 py-2 px-3' :
+                          i === 2 ? 'bg-gradient-to-r from-amber-700/10 to-transparent border border-amber-700/20 py-2 px-3' :
+                          'hover:bg-white/5 py-1.5 px-3 border border-transparent'
+                        }`}
+                      >
+                        <div className={`font-bold flex justify-center items-center ${i > 2 ? 'text-white/40 text-sm w-5' : 'w-6'}`}>
+                          {i === 0 ? (
+                            <motion.div
+                              animate={{ y: [0, -3, 0], scale: [1, 1.1, 1], rotate: [-5, 5, -5] }}
+                              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                            >
+                              <Trophy className="w-5 h-5 text-[#fab616] drop-shadow-[0_0_8px_rgba(250,182,22,0.8)]" />
+                            </motion.div>
+                          ) : i === 1 ? (
+                            <motion.div
+                              animate={{ y: [0, -2, 0] }}
+                              transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut", delay: 0.3 }}
+                            >
+                              <Medal className="w-5 h-5 text-gray-300 drop-shadow-[0_0_5px_rgba(209,213,219,0.5)]" />
+                            </motion.div>
+                          ) : i === 2 ? (
+                            <motion.div
+                              animate={{ y: [0, -2, 0] }}
+                              transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut", delay: 0.6 }}
+                            >
+                              <Medal className="w-5 h-5 text-amber-600 drop-shadow-[0_0_5px_rgba(217,119,6,0.5)]" />
+                            </motion.div>
+                          ) : (
+                            i + 1
+                          )}
                         </div>
-                        <div className="text-xs font-bold text-[#f58220] whitespace-nowrap">{u.total_points || 0} pt</div>
-                      </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`truncate ${
+                            i === 0 ? 'text-sm font-bold text-[#fab616]' : 
+                            i === 1 ? 'text-sm font-bold text-gray-300' : 
+                            i === 2 ? 'text-sm font-bold text-amber-500' : 
+                            'text-sm font-medium text-white/90'
+                          }`}>{u.full_name || '—'}</p>
+                          <p className={`text-xs truncate ${
+                            i === 0 ? 'text-[#fab616]/70' : 
+                            i === 1 ? 'text-gray-300/70' : 
+                            i === 2 ? 'text-amber-500/70' : 
+                            'text-white/40'
+                          }`}>{u.club_name || 'No club'}</p>
+                        </div>
+                        <div className={`font-bold whitespace-nowrap ${
+                          i === 0 ? 'text-[#fab616] text-sm drop-shadow-[0_0_5px_rgba(250,182,22,0.5)]' : 
+                          i === 1 ? 'text-gray-300 text-sm' : 
+                          i === 2 ? 'text-amber-500 text-sm' : 
+                          'text-xs text-[#f58220]'
+                        }`}>{u.total_points || 0} pt</div>
+                      </motion.div>
                     ))}
                   </div>
                 )}
@@ -307,6 +357,9 @@ export default function LandingPage() {
           </motion.div>
         </div>
       </main>
+      <footer className="w-full text-center py-6 text-white/40 text-xs border-t border-white/5 relative z-10 mt-auto">
+        Copyrights Rotaract District 3233.
+      </footer>
     </div>
   )
 }

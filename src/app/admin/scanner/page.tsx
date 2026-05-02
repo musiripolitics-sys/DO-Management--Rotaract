@@ -14,11 +14,10 @@ export default function QRScanner() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [hasCamera, setHasCamera] = useState<boolean | null>(null)
   const [isScanning, setIsScanning] = useState(false)
-  const [scannedData, setScannedData] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [scanResult, setScanResult] = useState<{ status: 'success' | 'error', message: string, points?: number } | null>(null)
   
-  const [events, setEvents] = useState<any[]>([])
+  const [events, setEvents] = useState<{id: string, name: string, event_date: string}[]>([])
   const [selectedEventId, setSelectedEventId] = useState<string>('')
   const [useFrontCamera, setUseFrontCamera] = useState(false)
 
@@ -112,7 +111,6 @@ export default function QRScanner() {
     if (isProcessing) return
     
     stopScanning()
-    setScannedData(data)
     setIsProcessing(true)
 
     try {
@@ -192,7 +190,7 @@ export default function QRScanner() {
           
           <div className="space-y-1.5">
             <label className="text-sm text-white/70 font-medium">Select Event for Attendance</label>
-            <Select value={selectedEventId} onValueChange={setSelectedEventId} disabled={isScanning}>
+            <Select value={selectedEventId} onValueChange={(val) => setSelectedEventId(val || '')} disabled={isScanning}>
               <SelectTrigger className="bg-black/50 border-white/10 text-white">
                 <SelectValue placeholder="-- Choose an Event --" />
               </SelectTrigger>

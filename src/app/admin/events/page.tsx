@@ -1,21 +1,32 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CalendarPlus, Calendar, MapPin, Clock, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
+type Event = {
+  id: string
+  name: string
+  event_date: string
+  start_time: string
+  location: string | null
+  category: string | null
+}
+
 export default function EventsManagement() {
-  const [events, setEvents] = useState<any[]>([])
+  const [events, setEvents] = useState<Event[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [newEvent, setNewEvent] = useState({ name: '', date: '', time: '', location: '' })
+  const [newEvent, setNewEvent] = useState({ name: '', date: '', endDate: '', time: '', location: '', category: '' })
+  const [isMultiDay, setIsMultiDay] = useState(false)
 
   const supabase = createClient()
 
@@ -31,13 +42,19 @@ export default function EventsManagement() {
   }
 
   useEffect(() => {
-    fetchEvents()
+    const timer = setTimeout(() => fetchEvents(), 0)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newEvent.name || !newEvent.date || !newEvent.time) {
+    if (!newEvent.name || !newEvent.date || !newEvent.time || !newEvent.category) {
       toast.error('Please fill in all required fields.')
+      return
+    }
+    if (isMultiDay && !newEvent.endDate) {
+      toast.error('Please provide an end date for multi-day events.')
       return
     }
 
@@ -52,7 +69,9 @@ export default function EventsManagement() {
         body: JSON.stringify({
           name: newEvent.name,
           location: newEvent.location,
+          category: newEvent.category,
           event_date: newEvent.date,
+          end_date: isMultiDay ? newEvent.endDate : null,
           start_time: startTime,
         }),
       })
@@ -62,7 +81,8 @@ export default function EventsManagement() {
 
       toast.success('Event created successfully!')
       setIsDialogOpen(false)
-      setNewEvent({ name: '', date: '', time: '', location: '' })
+      setNewEvent({ name: '', date: '', endDate: '', time: '', location: '', category: '' })
+      setIsMultiDay(false)
       fetchEvents()
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to create event')
@@ -80,11 +100,9 @@ export default function EventsManagement() {
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-white text-black hover:bg-white/90">
-              <CalendarPlus className="w-4 h-4 mr-2" />
-              Create Event
-            </Button>
+          <DialogTrigger render={<Button className="bg-white text-black hover:bg-white/90" />}>
+            <CalendarPlus className="w-4 h-4 mr-2" />
+            Create Event
           </DialogTrigger>
           <DialogContent className="bg-[#0f0f13] border-white/10 text-white sm:max-w-[425px]">
             <DialogHeader>
@@ -101,9 +119,33 @@ export default function EventsManagement() {
                   placeholder="e.g., Annual Conference"
                 />
               </div>
+              <div className="space-y-2">
+                <Label className="text-white/70">Category</Label>
+                <Select value={newEvent.category} onValueChange={(val) => setNewEvent({ ...newEvent, category: val || '' })}>
+                  <SelectTrigger className="bg-black/50 border-white/10 text-white">
+                    <SelectValue placeholder="Select event category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#0f0f13] border-white/10 text-white">
+                    <SelectItem value="District Event">District Event</SelectItem>
+                    <SelectItem value="Ceremonies">Ceremonies</SelectItem>
+                    <SelectItem value="DRC">DRC</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-white/70">Event Duration</Label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-white/80 cursor-pointer">
+                    <input type="radio" checked={!isMultiDay} onChange={() => setIsMultiDay(false)} className="accent-purple-600" /> Single Day
+                  </label>
+                  <label className="flex items-center gap-2 text-white/80 cursor-pointer">
+                    <input type="radio" checked={isMultiDay} onChange={() => setIsMultiDay(true)} className="accent-purple-600" /> Multiple Days
+                  </label>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="date" className="text-white/70">Date</Label>
+                  <Label htmlFor="date" className="text-white/70">{isMultiDay ? 'Start Date' : 'Date'}</Label>
                   <Input 
                     id="date" 
                     type="date"
@@ -112,6 +154,31 @@ export default function EventsManagement() {
                     className="bg-black/50 border-white/10 text-white [color-scheme:dark]" 
                   />
                 </div>
+                {isMultiDay ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="endDate" className="text-white/70">End Date</Label>
+                    <Input 
+                      id="endDate" 
+                      type="date"
+                      value={newEvent.endDate}
+                      onChange={(e) => setNewEvent({ ...newEvent, endDate: e.target.value })}
+                      className="bg-black/50 border-white/10 text-white [color-scheme:dark]" 
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="time" className="text-white/70">Start Time</Label>
+                    <Input 
+                      id="time" 
+                      type="time"
+                      value={newEvent.time}
+                      onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })}
+                      className="bg-black/50 border-white/10 text-white [color-scheme:dark]" 
+                    />
+                  </div>
+                )}
+              </div>
+              {isMultiDay && (
                 <div className="space-y-2">
                   <Label htmlFor="time" className="text-white/70">Start Time</Label>
                   <Input 
@@ -122,7 +189,7 @@ export default function EventsManagement() {
                     className="bg-black/50 border-white/10 text-white [color-scheme:dark]" 
                   />
                 </div>
-              </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="location" className="text-white/70">Location</Label>
                 <Input 
@@ -155,11 +222,18 @@ export default function EventsManagement() {
           {events.map((event) => (
             <Card key={event.id} className="bg-white/5 border-white/10 border-0 ring-1 ring-white/10 shadow-lg hover:ring-purple-500/50 transition-all cursor-pointer group">
               <CardHeader>
-                <CardTitle className="text-xl text-white group-hover:text-purple-300 transition-colors">{event.name}</CardTitle>
+                <CardTitle className="text-xl text-white group-hover:text-purple-300 transition-colors flex items-center justify-between gap-2">
+                  <span>{event.name}</span>
+                  {event.category && (
+                    <span className="text-xs font-normal px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30 whitespace-nowrap">
+                      {event.category}
+                    </span>
+                  )}
+                </CardTitle>
                 <CardDescription className="flex flex-col gap-2 pt-2 text-white/50">
                   <span className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
-                    {event.event_date}
+                    {event.end_date ? `${event.event_date} to ${event.end_date}` : event.event_date}
                   </span>
                   <span className="flex items-center gap-2">
                     <Clock className="w-4 h-4" />
