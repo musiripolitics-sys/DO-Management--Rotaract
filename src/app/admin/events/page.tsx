@@ -18,6 +18,7 @@ type Event = {
   start_time: string
   location: string | null
   category: string | null
+  end_date: string | null
 }
 
 export default function EventsManagement() {
