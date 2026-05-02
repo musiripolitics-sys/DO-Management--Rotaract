@@ -55,7 +55,6 @@ export default function QRScanner() {
     }
 
     setIsScanning(true)
-    setScannedData(null)
     setScanResult(null)
 
     try {
