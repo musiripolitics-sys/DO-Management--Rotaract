@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { LogOut, LayoutDashboard, QrCode, CalendarPlus } from 'lucide-react'
+import { LogOut, LayoutDashboard, QrCode, CalendarPlus, ClipboardList } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -36,6 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { name: 'Overview', href: '/admin', icon: LayoutDashboard },
     { name: 'Events', href: '/admin/events', icon: CalendarPlus },
+    { name: 'Attendance', href: '/admin/attendance', icon: ClipboardList },
     { name: 'Scanner', href: '/admin/scanner', icon: QrCode },
   ]
 
