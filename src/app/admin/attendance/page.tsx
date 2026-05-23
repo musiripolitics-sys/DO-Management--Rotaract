@@ -12,9 +12,6 @@ import {
   Users,
   Download,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 
 type EventLite = {
   id: string
@@ -53,10 +50,10 @@ type EventDetail = {
 }
 
 const statusLabel: Record<string, { text: string; cls: string }> = {
-  'on-time': { text: 'On Time', cls: 'text-green-400 bg-green-400/10' },
-  'within-15': { text: 'Within 15', cls: 'text-emerald-300 bg-emerald-300/10' },
-  'within-30': { text: 'Within 30', cls: 'text-yellow-300 bg-yellow-300/10' },
-  late: { text: 'Late', cls: 'text-orange-400 bg-orange-400/10' },
+  'on-time': { text: 'On Time', cls: 'text-emerald-700 bg-emerald-100' },
+  'within-15': { text: 'Within 15', cls: 'text-emerald-600 bg-emerald-50' },
+  'within-30': { text: 'Within 30', cls: 'text-amber-700 bg-amber-50' },
+  late: { text: 'Late', cls: 'text-orange-700 bg-orange-50' },
 }
 
 function pickOne<T>(v: T | T[] | null | undefined): T | null {
@@ -176,50 +173,58 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
+    <div className="p-6 lg:p-10 space-y-6">
       <header>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Meeting Attendance</h1>
-        <p className="text-white/60">
-          Pick an event to see who checked in, when they arrived, and what points they earned.
+        <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-[#6D28D9] mb-2">
+          District 3233 · Attendance
+        </p>
+        <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-[#1A1815]">
+          Meeting <span className="text-[#6D28D9]">attendance.</span>
+        </h1>
+        <p className="mt-2 text-sm text-[#1A1815]/65 max-w-xl">
+          Pick an event to see who checked in, when they arrived, and what
+          points they earned.
         </p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT: events list */}
-        <Card className="lg:col-span-4 bg-white/5 border-white/10 border-0 ring-1 ring-white/10 shadow-lg flex flex-col h-[calc(100vh-220px)] min-h-[500px]">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-white flex items-center gap-2 text-base">
-              <Calendar className="w-4 h-4" />
-              Events
+        <div className="lg:col-span-4 bg-white border border-[#1A1815]/8 rounded-2xl shadow-[0_1px_2px_rgba(26,24,21,0.04)] flex flex-col h-[calc(100vh-220px)] min-h-[500px] overflow-hidden">
+          <div className="px-5 pt-5 pb-3">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-[#1A1815] inline-flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#6D28D9]" />
+                Events
+              </h2>
               {events && (
-                <span className="ml-auto text-xs font-medium text-white/50">
-                  {events.length}
+                <span className="text-[11px] uppercase tracking-[0.12em] font-semibold text-[#1A1815]/45">
+                  {events.length} total
                 </span>
               )}
-            </CardTitle>
-          </CardHeader>
-          <div className="px-6 pb-3 relative">
-            <Search className="absolute left-9 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35" />
-            <Input
-              value={eventQuery}
-              onChange={(e) => setEventQuery(e.target.value)}
-              placeholder="Search events..."
-              className="bg-black/40 border-white/10 text-white pl-9 placeholder:text-white/30 h-9"
-            />
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1A1815]/35" />
+              <input
+                value={eventQuery}
+                onChange={(e) => setEventQuery(e.target.value)}
+                placeholder="Search events..."
+                className="w-full bg-[#FAFAF9] border border-[#1A1815]/10 rounded-xl pl-9 pr-3 h-10 text-sm text-[#1A1815] placeholder:text-[#1A1815]/35 focus:border-[#6D28D9] focus:ring-2 focus:ring-[#6D28D9]/15 outline-none transition"
+              />
+            </div>
           </div>
-          <CardContent className="overflow-y-auto flex-1 pt-0 px-3 pb-3 space-y-1">
+          <div className="overflow-y-auto flex-1 px-2 pb-3 space-y-1">
             {!events && !eventsError && (
               <div className="flex justify-center py-10">
-                <Loader2 className="w-5 h-5 text-white/40 animate-spin" />
+                <Loader2 className="w-5 h-5 text-[#6D28D9]/60 animate-spin" />
               </div>
             )}
             {eventsError && (
-              <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-md p-3">
+              <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl p-3 m-2">
                 {eventsError}
               </div>
             )}
             {events && filteredEvents.length === 0 && (
-              <div className="text-sm text-white/45 py-8 text-center">
+              <div className="text-sm text-[#1A1815]/45 py-8 text-center">
                 No events match.
               </div>
             )}
@@ -230,28 +235,32 @@ export default function AttendancePage() {
                   key={e.id}
                   type="button"
                   onClick={() => setSelectedId(e.id)}
-                  className={`w-full text-left px-3 py-3 rounded-lg transition-colors ${
+                  className={`w-full text-left px-3 py-3 rounded-xl transition-all ${
                     isActive
-                      ? 'bg-white/10 ring-1 ring-white/20'
-                      : 'hover:bg-white/5'
+                      ? 'bg-[#F5F3FF] ring-1 ring-[#6D28D9]/40'
+                      : 'hover:bg-[#FAFAF9]'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-white/90 line-clamp-2">
+                    <p
+                      className={`text-sm font-medium leading-snug line-clamp-2 ${
+                        isActive ? 'text-[#6D28D9]' : 'text-[#1A1815]'
+                      }`}
+                    >
                       {e.name}
                     </p>
                     <span
-                      className={`shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2 py-0.5 ${
+                      className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-bold rounded-full px-2 py-0.5 ${
                         e.attendee_count > 0
-                          ? 'bg-[#f58220]/15 text-[#f58220]'
-                          : 'bg-white/5 text-white/45'
+                          ? 'bg-[#F2A410]/15 text-[#A06F00]'
+                          : 'bg-[#1A1815]/5 text-[#1A1815]/50'
                       }`}
                     >
                       <Users className="w-3 h-3" />
                       {e.attendee_count}
                     </span>
                   </div>
-                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-white/45">
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[#1A1815]/55">
                     <span className="inline-flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       {fmtDate(e.event_date)}
@@ -266,89 +275,94 @@ export default function AttendancePage() {
                 </button>
               )
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* RIGHT: attendees */}
-        <Card className="lg:col-span-8 bg-white/5 border-white/10 border-0 ring-1 ring-white/10 shadow-lg flex flex-col h-[calc(100vh-220px)] min-h-[500px]">
-          <CardHeader className="pb-3">
+        <div className="lg:col-span-8 bg-white border border-[#1A1815]/8 rounded-2xl shadow-[0_1px_2px_rgba(26,24,21,0.04)] flex flex-col h-[calc(100vh-220px)] min-h-[500px] overflow-hidden">
+          <div className="px-6 pt-5 pb-4 border-b border-[#1A1815]/8">
             {detail ? (
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                  <CardTitle className="text-white text-lg leading-tight">
+                  <h2 className="text-lg font-bold text-[#1A1815] leading-tight">
                     {detail.event.name}
-                  </CardTitle>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/55">
+                  </h2>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#1A1815]/60">
                     <span className="inline-flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5" /> {fmtDate(detail.event.event_date)}
+                      <Calendar className="w-3.5 h-3.5 text-[#6D28D9]" />
+                      {fmtDate(detail.event.event_date)}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" /> {fmtTime(detail.event.start_time)}
+                      <Clock className="w-3.5 h-3.5 text-[#6D28D9]" />
+                      {fmtTime(detail.event.start_time)}
                     </span>
                     {detail.event.location && (
                       <span className="inline-flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5" /> {detail.event.location}
+                        <MapPin className="w-3.5 h-3.5 text-[#6D28D9]" />
+                        {detail.event.location}
                       </span>
                     )}
-                    <span className="inline-flex items-center gap-1.5 text-[#f58220] font-medium">
-                      <CalendarCheck className="w-3.5 h-3.5" /> {detail.attendees.length} attended
+                    <span className="inline-flex items-center gap-1.5 text-[#F2A410] font-semibold">
+                      <CalendarCheck className="w-3.5 h-3.5" />
+                      {detail.attendees.length} attended
                     </span>
                   </div>
                 </div>
                 {detail.attendees.length > 0 && (
-                  <Button
+                  <button
                     type="button"
                     onClick={downloadCsv}
-                    variant="outline"
-                    className="border-white/15 bg-white/5 hover:bg-white/10 text-white"
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#1A1815]/12 hover:border-[#6D28D9]/40 hover:bg-[#F5F3FF] hover:text-[#6D28D9] text-[#1A1815] text-sm font-medium px-4 py-2 transition-colors"
                   >
-                    <Download className="w-4 h-4 mr-2" />
+                    <Download className="w-4 h-4" />
                     Export CSV
-                  </Button>
+                  </button>
                 )}
               </div>
             ) : (
-              <CardTitle className="text-white text-lg">
+              <h2 className="text-lg font-bold text-[#1A1815]">
                 {detailLoading ? 'Loading…' : 'Pick an event'}
-              </CardTitle>
+              </h2>
             )}
-          </CardHeader>
+          </div>
 
           {detail && detail.attendees.length > 0 && (
-            <div className="px-6 pb-3 relative">
-              <Search className="absolute left-9 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35" />
-              <Input
-                value={attendeeQuery}
-                onChange={(e) => setAttendeeQuery(e.target.value)}
-                placeholder="Search by name, email, or club..."
-                className="bg-black/40 border-white/10 text-white pl-9 placeholder:text-white/30 h-9"
-              />
+            <div className="px-6 py-3 border-b border-[#1A1815]/6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1A1815]/35" />
+                <input
+                  value={attendeeQuery}
+                  onChange={(e) => setAttendeeQuery(e.target.value)}
+                  placeholder="Search by name, email, or club..."
+                  className="w-full bg-[#FAFAF9] border border-[#1A1815]/10 rounded-xl pl-9 pr-3 h-10 text-sm text-[#1A1815] placeholder:text-[#1A1815]/35 focus:border-[#6D28D9] focus:ring-2 focus:ring-[#6D28D9]/15 outline-none transition"
+                />
+              </div>
             </div>
           )}
 
-          <CardContent className="overflow-y-auto flex-1 pt-0">
+          <div className="overflow-y-auto flex-1">
             {detailLoading && (
               <div className="flex justify-center py-12">
-                <Loader2 className="w-6 h-6 text-white/40 animate-spin" />
+                <Loader2 className="w-6 h-6 text-[#6D28D9]/60 animate-spin" />
               </div>
             )}
             {detailError && (
-              <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-md p-4">
+              <div className="m-6 text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl p-4">
                 {detailError}
               </div>
             )}
             {detail && detail.attendees.length === 0 && !detailLoading && (
               <div className="text-center py-16">
-                <Users className="w-10 h-10 text-white/20 mx-auto mb-3" />
-                <p className="text-white/55 text-sm">
+                <Users className="w-10 h-10 text-[#1A1815]/20 mx-auto mb-3" />
+                <p className="text-[#1A1815]/55 text-sm">
                   No one has checked in to this event yet.
                 </p>
               </div>
             )}
             {detail && detail.attendees.length > 0 && (
-              <div className="overflow-x-auto -mx-6">
+              <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="text-[10px] uppercase tracking-[0.14em] text-white/45 bg-white/5">
+                  <thead className="text-[10px] uppercase tracking-[0.14em] text-[#1A1815]/50 bg-[#FAFAF9] border-b border-[#1A1815]/8">
                     <tr>
                       <Th>Name</Th>
                       <Th>Club</Th>
@@ -362,58 +376,60 @@ export default function AttendancePage() {
                       const p = pickOne<Profile>(a.profiles)
                       const meta = statusLabel[a.status ?? ''] ?? {
                         text: a.status ?? '—',
-                        cls: 'text-white/50 bg-white/10',
+                        cls: 'text-[#1A1815]/65 bg-[#1A1815]/5',
                       }
                       return (
                         <tr
                           key={a.id}
-                          className="border-b border-white/5 last:border-0 hover:bg-white/[0.03]"
+                          className="border-b border-[#1A1815]/6 last:border-0 hover:bg-[#FAFAF9] transition-colors"
                         >
                           <Td>
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-[#f58220]/15 text-[#f58220] flex items-center justify-center text-xs font-semibold shrink-0">
+                              <div className="w-9 h-9 rounded-full bg-[#6D28D9]/10 text-[#6D28D9] flex items-center justify-center text-xs font-bold shrink-0">
                                 {(p?.full_name || p?.email || '?').slice(0, 1).toUpperCase()}
                               </div>
                               <div className="min-w-0">
-                                <div className="text-white/95 font-medium truncate">
+                                <div className="text-[#1A1815] font-medium truncate">
                                   {p?.full_name || '—'}
                                 </div>
                                 {p?.email && (
                                   <a
                                     href={`mailto:${p.email}`}
-                                    className="text-[11px] text-white/45 hover:text-white inline-flex items-center gap-1 truncate"
+                                    className="text-[11px] text-[#1A1815]/55 hover:text-[#6D28D9] inline-flex items-center gap-1 truncate"
                                   >
                                     <Mail className="w-3 h-3 shrink-0" />
                                     <span className="truncate">{p.email}</span>
                                   </a>
                                 )}
                               </div>
-                              <span className="ml-2 text-white/30 text-[11px] font-mono">
+                              <span className="ml-2 text-[#1A1815]/30 text-[11px] font-mono">
                                 #{i + 1}
                               </span>
                             </div>
                           </Td>
-                          <Td className="text-white/65">
+                          <Td className="text-[#1A1815]/70">
                             {p?.club_name || '—'}
                             {p?.designation && (
-                              <div className="text-[11px] text-white/40">{p.designation}</div>
+                              <div className="text-[11px] text-[#1A1815]/45">
+                                {p.designation}
+                              </div>
                             )}
                           </Td>
-                          <Td className="text-white/65 whitespace-nowrap">
+                          <Td className="text-[#1A1815]/70 whitespace-nowrap">
                             {fmtTime(a.check_in_time)}
-                            <div className="text-[11px] text-white/35">
+                            <div className="text-[11px] text-[#1A1815]/40">
                               {fmtDate(a.check_in_time)}
                             </div>
                           </Td>
                           <Td>
                             <span
-                              className={`text-[11px] font-bold px-2 py-1 rounded ${meta.cls}`}
+                              className={`text-[10px] font-bold uppercase tracking-[0.1em] px-2 py-1 rounded ${meta.cls}`}
                             >
                               {meta.text}
                             </span>
                           </Td>
                           <Td className="text-right">
-                            <span className="text-[#f58220] font-bold">
+                            <span className="text-[#F2A410] font-extrabold tabular-nums">
                               +{a.points_awarded}
                             </span>
                           </Td>
@@ -422,7 +438,10 @@ export default function AttendancePage() {
                     })}
                     {filteredAttendees.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="py-10 text-center text-white/45 text-sm">
+                        <td
+                          colSpan={5}
+                          className="py-10 text-center text-[#1A1815]/45 text-sm"
+                        >
                           No attendees match &ldquo;{attendeeQuery}&rdquo;.
                         </td>
                       </tr>
@@ -431,16 +450,16 @@ export default function AttendancePage() {
                 </table>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
 function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <th className={`text-left font-medium px-6 py-3 ${className}`}>{children}</th>
+  return <th className={`text-left font-semibold px-6 py-3 ${className}`}>{children}</th>
 }
 function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <td className={`px-6 py-3 align-top ${className}`}>{children}</td>
+  return <td className={`px-6 py-3.5 align-top ${className}`}>{children}</td>
 }

@@ -26,10 +26,10 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { email, event_id } = body
+    const { qr_identity, event_id } = body
 
-    if (!email || !event_id) {
-      return NextResponse.json({ error: 'Missing email or event_id' }, { status: 400 })
+    if (!qr_identity || !event_id) {
+      return NextResponse.json({ error: 'Missing qr_identity or event_id' }, { status: 400 })
     }
 
     const supabase = getAdminClient()
@@ -37,11 +37,11 @@ export async function POST(request: Request) {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('id, full_name, email')
-      .eq('email', email.toLowerCase())
+      .eq('qr_identity', qr_identity.toLowerCase())
       .single()
 
     if (profileError || !profile) {
-      return NextResponse.json({ error: 'Member not found for this email' }, { status: 404 })
+      return NextResponse.json({ error: 'Member not found — invalid QR code' }, { status: 404 })
     }
 
     const { data: existingAttendance } = await supabase

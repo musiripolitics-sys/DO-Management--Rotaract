@@ -24,10 +24,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark antialiased`}>
-      <body className="min-h-screen bg-[#050505] text-white flex flex-col" suppressHydrationWarning>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className="min-h-screen bg-white text-[#1A1815] flex flex-col" suppressHydrationWarning>
         {children}
-        <Toaster theme="dark" position="bottom-right" />
+        <Toaster theme="light" position="bottom-right" richColors />
       </body>
     </html>
   );

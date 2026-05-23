@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const supabase = getAdminClient()
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name')
+      .select('id, email, full_name, role, designation')
       .eq('email', email)
       .maybeSingle()
 

@@ -22,6 +22,26 @@ async function requireAdmin() {
   return true
 }
 
+export async function GET() {
+  try {
+    if (!(await requireAdmin())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const supabase = getAdminClient()
+    const { data, error } = await supabase
+      .from('events')
+      .select('id, name, event_date, start_time, location, category, end_date')
+      .order('start_time', { ascending: false })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ events: data ?? [] })
+  } catch (error: unknown) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { status: 500 },
+    )
+  }
+}
+
 export async function POST(request: Request) {
   try {
     if (!(await requireAdmin())) {
