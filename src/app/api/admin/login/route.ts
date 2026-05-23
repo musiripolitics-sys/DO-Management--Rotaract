@@ -1,27 +1,18 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
+// ── Admin credentials (server-side only — never reaches the browser) ──
+// To change: edit these values and redeploy. To rotate without a deploy,
+// set the ADMIN_USERNAME / ADMIN_PASSWORD env vars in Netlify instead.
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'Kumar'
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '1234098'
+
 export async function POST(request: Request) {
   try {
     const { username, password } = await request.json()
 
-    const validUsername = process.env.ADMIN_USERNAME
-    const validPassword = process.env.ADMIN_PASSWORD
-
-    if (!validUsername || !validPassword) {
-      return NextResponse.json(
-        { error: 'Admin credentials are not configured on the server.' },
-        { status: 500 },
-      )
-    }
-
-    if (username !== validUsername || password !== validPassword) {
-      // Constant-time-ish: always do both compares before returning
-      const wrongUser = username !== validUsername
-      const wrongPass = password !== validPassword
-      if (wrongUser || wrongPass) {
-        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
-      }
+    if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 
     const res = NextResponse.json({ success: true })

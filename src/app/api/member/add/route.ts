@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, memberEmail, phone, riId, referredBy } = body
+    const { name, memberEmail, phone, riId, referredByName, referredByRiId } = body
 
     // 2. Validate — all fields mandatory
     const missing: string[] = []
@@ -48,7 +48,8 @@ export async function POST(request: Request) {
     if (!memberEmail) missing.push('Email')
     if (!phone) missing.push('Phone')
     if (!riId) missing.push('RI ID')
-    if (!referredBy) missing.push('Referred By')
+    if (!referredByName) missing.push('Referrer Name')
+    if (!referredByRiId) missing.push('Referrer RI ID')
 
     if (missing.length > 0) {
       return NextResponse.json(
@@ -57,15 +58,20 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3. Verify the referrer exists in profiles
-    const { data: referrerProfile, error: referrerError } = await supabase
+    // 3. Look up the referrer by RI ID (so the referral link & points still work)
+    const { data: referrerProfile } = await supabase
       .from('profiles')
-      .select('id, full_name')
-      .eq('id', referredBy)
-      .single()
+      .select('id, full_name, ri_id')
+      .eq('ri_id', referredByRiId.trim())
+      .maybeSingle()
 
-    if (referrerError || !referrerProfile) {
-      return NextResponse.json({ error: 'Selected referrer not found.' }, { status: 404 })
+    if (!referrerProfile) {
+      return NextResponse.json(
+        {
+          error: `No member found with RI ID "${referredByRiId.trim()}". Please verify the referrer's RI ID.`,
+        },
+        { status: 404 },
+      )
     }
 
     // 4. Create the auth user (triggers profile row creation via DB trigger)
@@ -93,7 +99,7 @@ export async function POST(request: Request) {
         full_name: name,
         phone_number: phone.trim(),
         ri_id: riId.trim(),
-        referred_by: referredBy,
+        referred_by: referrerProfile.id,
         club_name: callerProfile.club_name ?? null,
       })
       .eq('email', memberEmail.trim().toLowerCase())

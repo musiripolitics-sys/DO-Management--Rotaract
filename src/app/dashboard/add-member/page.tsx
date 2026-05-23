@@ -2,23 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, UserPlus, Mail, User, Hash, Phone, ChevronDown, Search } from 'lucide-react'
+import { ArrowLeft, UserPlus, Mail, User, Hash, Phone, IdCard } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
-
-type Member = {
-  id: string
-  full_name: string | null
-  designation: string | null
-  club_name: string | null
-}
 
 type FormData = {
   name: string
   memberEmail: string
   phone: string
   riId: string
-  referredBy: string // profile UUID
+  referredByName: string
+  referredByRiId: string
 }
 
 const EMPTY_FORM: FormData = {
@@ -26,7 +20,8 @@ const EMPTY_FORM: FormData = {
   memberEmail: '',
   phone: '',
   riId: '',
-  referredBy: '',
+  referredByName: '',
+  referredByRiId: '',
 }
 
 function Field({
@@ -59,55 +54,25 @@ export default function AddMember() {
   const [loading, setLoading] = useState(false)
   const [authorized, setAuthorized] = useState<boolean | null>(null)
   const [presidentClub, setPresidentClub] = useState<string | null>(null)
-  const [members, setMembers] = useState<Member[]>([])
-  const [membersLoading, setMembersLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [dropdownOpen, setDropdownOpen] = useState(false)
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM)
 
-  // Auth check + load member list in parallel
+  // Auth check
   useEffect(() => {
     async function init() {
-      const [meRes, listRes] = await Promise.all([
-        fetch('/api/member/me'),
-        fetch('/api/member/list'),
-      ])
-
+      const meRes = await fetch('/api/member/me')
       if (!meRes.ok) {
         window.location.href = '/'
         return
       }
-
       const me = await meRes.json()
       const isPresident = Boolean(me.profile?.designation?.toLowerCase().includes('president'))
       setAuthorized(isPresident)
       setPresidentClub(me.profile?.club_name ?? null)
-
-      if (listRes.ok) {
-        const listData = await listRes.json()
-        setMembers(listData.members ?? [])
-      }
-      setMembersLoading(false)
     }
     init()
   }, [])
 
   const field = (k: keyof FormData, v: string) => setFormData((f) => ({ ...f, [k]: v }))
-
-  // Only show members from the president's own club
-  const clubMembers = presidentClub
-    ? members.filter((m) => m.club_name === presidentClub)
-    : members
-
-  const selectedMember = clubMembers.find((m) => m.id === formData.referredBy)
-
-  const filteredMembers = clubMembers.filter((m) => {
-    const q = search.toLowerCase()
-    return (
-      m.full_name?.toLowerCase().includes(q) ||
-      m.designation?.toLowerCase().includes(q)
-    )
-  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -122,7 +87,6 @@ export default function AddMember() {
       if (res.ok) {
         toast.success(data.message || 'Member added successfully!')
         setFormData(EMPTY_FORM)
-        setSearch('')
       } else {
         toast.error(data.error || 'Failed to add member')
       }
@@ -195,6 +159,12 @@ export default function AddMember() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
 
+            {/* ── New member section ── */}
+            <div className="flex items-center gap-3 pb-1">
+              <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-white/35">New member details</p>
+              <div className="flex-1 h-px bg-white/8" />
+            </div>
+
             {/* Name */}
             <Field label="Full Name" icon={User}>
               <input
@@ -255,114 +225,45 @@ export default function AddMember() {
               </div>
             </div>
 
-            {/* Referred By — custom dropdown */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-1 text-sm font-medium text-white/75">
-                  Referred By <span className="text-red-400">*</span>
-                </label>
+            {/* ── Referred By section ── */}
+            <div className="pt-4 space-y-1">
+              <div className="flex items-center gap-3">
+                <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-white/35">Referred by</p>
+                <div className="flex-1 h-px bg-white/8" />
                 {presidentClub && (
                   <span className="text-[11px] text-white/35 font-medium">
-                    {presidentClub} · {clubMembers.length} members
+                    {presidentClub}
                   </span>
                 )}
               </div>
+              <p className="text-xs text-white/40 leading-relaxed pt-1">
+                The referring official will be credited with this recruitment.
+              </p>
+            </div>
 
-              <div className="relative">
-                {/* Trigger */}
-                <button
-                  type="button"
-                  onClick={() => setDropdownOpen((v) => !v)}
-                  className={`w-full flex items-center justify-between bg-white/5 border rounded-xl py-2.5 px-4 text-left transition-all focus:outline-none focus:ring-2 focus:ring-[#6D28D9]/50 ${
-                    dropdownOpen ? 'border-[#6D28D9]/50 ring-2 ring-[#6D28D9]/30' : 'border-white/10'
-                  }`}
-                >
-                  {selectedMember ? (
-                    <span className="text-white text-sm truncate">
-                      {selectedMember.full_name}
-                      {selectedMember.designation && (
-                        <span className="text-white/45 ml-2">— {selectedMember.designation}</span>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="text-white/25 text-sm">Select the referring official…</span>
-                  )}
-                  <ChevronDown
-                    className={`w-4 h-4 text-white/40 shrink-0 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
-                  />
-                </button>
-
-                {/* Dropdown panel */}
-                {dropdownOpen && (
-                  <div className="absolute z-20 mt-1 w-full bg-[#1a1a20] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
-                    {/* Search */}
-                    <div className="p-2 border-b border-white/8">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
-                        <input
-                          type="text"
-                          placeholder="Search name or designation…"
-                          autoFocus
-                          value={search}
-                          onChange={(e) => setSearch(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-[#6D28D9]/50"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Options list */}
-                    <ul className="max-h-52 overflow-y-auto py-1">
-                      {membersLoading ? (
-                        <li className="px-4 py-3 text-sm text-white/40 text-center">Loading…</li>
-                      ) : filteredMembers.length === 0 ? (
-                        <li className="px-4 py-3 text-sm text-white/40 text-center">No match found</li>
-                      ) : (
-                        filteredMembers.map((m) => (
-                          <li key={m.id}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                field('referredBy', m.id)
-                                setDropdownOpen(false)
-                                setSearch('')
-                              }}
-                              className={`w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-white/5 transition-colors ${
-                                formData.referredBy === m.id ? 'bg-[#6D28D9]/15' : ''
-                              }`}
-                            >
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium text-white truncate">
-                                  {m.full_name || '—'}
-                                </p>
-                                {(m.designation || m.club_name) && (
-                                  <p className="text-xs text-white/40 truncate">
-                                    {[m.designation, m.club_name].filter(Boolean).join(' · ')}
-                                  </p>
-                                )}
-                              </div>
-                              {formData.referredBy === m.id && (
-                                <span className="w-2 h-2 rounded-full bg-[#A78BFA] shrink-0 ml-2" />
-                              )}
-                            </button>
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {/* Hidden native input so HTML required validation fires */}
+            {/* Referrer Name */}
+            <Field label="Referrer Name" icon={IdCard}>
               <input
                 type="text"
-                tabIndex={-1}
+                placeholder="e.g. Rtr. Vaseem"
+                className={inputCls}
+                value={formData.referredByName}
+                onChange={(e) => field('referredByName', e.target.value)}
                 required
-                value={formData.referredBy}
-                onChange={() => {}}
-                className="absolute opacity-0 pointer-events-none w-0 h-0"
-                aria-hidden
               />
-            </div>
+            </Field>
+
+            {/* Referrer RI ID */}
+            <Field label="Referrer RI ID" icon={Hash}>
+              <input
+                type="text"
+                placeholder="12345678"
+                className={inputCls}
+                value={formData.referredByRiId}
+                onChange={(e) => field('referredByRiId', e.target.value)}
+                required
+              />
+            </Field>
 
             <button
               type="submit"
