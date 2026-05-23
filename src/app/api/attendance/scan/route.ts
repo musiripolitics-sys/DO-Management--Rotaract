@@ -26,19 +26,27 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { qr_identity, event_id } = body
+    const { qr_identity, email, event_id } = body
 
-    if (!qr_identity || !event_id) {
-      return NextResponse.json({ error: 'Missing qr_identity or event_id' }, { status: 400 })
+    if (!event_id || (!qr_identity && !email)) {
+      return NextResponse.json({ error: 'Missing qr_identity/email or event_id' }, { status: 400 })
     }
 
     const supabase = getAdminClient()
 
-    const { data: profile, error: profileError } = await supabase
+    // Look up by qr_identity first (preferred), fall back to email (legacy QR codes)
+    let query = supabase
       .from('profiles')
       .select('id, full_name, email')
-      .eq('qr_identity', qr_identity.toLowerCase())
-      .single()
+
+    if (qr_identity) {
+      query = query.eq('qr_identity', String(qr_identity).toLowerCase())
+    } else {
+      // ilike = case-insensitive — handles emails stored with mixed case
+      query = query.ilike('email', String(email).trim())
+    }
+
+    const { data: profile, error: profileError } = await query.maybeSingle()
 
     if (profileError || !profile) {
       return NextResponse.json({ error: 'Member not found — invalid QR code' }, { status: 404 })

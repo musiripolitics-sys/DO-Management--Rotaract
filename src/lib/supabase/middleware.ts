@@ -5,7 +5,12 @@ export async function updateSession(request: NextRequest) {
   const memberCookie = request.cookies.get('vibe_member')?.value
   const adminCookie = request.cookies.get('vibe_admin')?.value
 
-  if ((pathname.startsWith('/dashboard') || pathname.startsWith('/portal')) && !memberCookie) {
+  if (
+    (pathname.startsWith('/dashboard') ||
+      pathname.startsWith('/portal') ||
+      pathname.startsWith('/do-portal')) &&
+    !memberCookie
+  ) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)

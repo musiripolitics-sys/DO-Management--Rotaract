@@ -89,6 +89,18 @@ export default function Dashboard() {
         window.location.href = '/'
         return
       }
+
+      // Redirect Presidents and DOs to their own portals
+      const designation: string = data.profile?.designation ?? ''
+      if (designation.toLowerCase().includes('president')) {
+        window.location.href = '/portal'
+        return
+      }
+      if (/^DO\s*-/i.test(designation)) {
+        window.location.href = '/do-portal'
+        return
+      }
+
       setProfile(data.profile)
       setAttendance(data.attendance || [])
       setRank(data.rank ?? null)
@@ -253,14 +265,20 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent className="flex flex-col items-center pb-8 pt-4">
                 <div className="bg-white p-4 rounded-3xl shadow-[0_0_40px_-10px_rgba(224,22,92,0.4)]">
-                  <QRCodeSVG
-                    value={`vibe:qr:${profile?.qr_identity}`}
-                    size={200}
-                    bgColor={"#ffffff"}
-                    fgColor={"#000000"}
-                    level={"Q"}
-                    includeMargin={false}
-                  />
+                  {profile?.email ? (
+                    <QRCodeSVG
+                      value={`vibe:email:${profile.email}`}
+                      size={200}
+                      bgColor={"#ffffff"}
+                      fgColor={"#000000"}
+                      level={"Q"}
+                      includeMargin={false}
+                    />
+                  ) : (
+                    <div className="w-[200px] h-[200px] flex items-center justify-center text-center text-xs text-red-600 px-4">
+                      Email missing — please contact an admin.
+                    </div>
+                  )}
                 </div>
                 <p className="mt-6 text-xs text-white/40 font-mono text-center break-all px-4">
                   {profile?.email as string}

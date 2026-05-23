@@ -132,9 +132,21 @@ export default function LandingPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Login failed')
-      
+
       toast.success(`Welcome back, ${data.member?.full_name || email}!`)
-      window.location.href = '/dashboard'
+
+      // Route based on designation
+      const designation: string = data.member?.designation ?? ''
+      const isPresident = designation.toLowerCase().includes('president')
+      const isDO = /^DO\s*-/i.test(designation)
+
+      if (isPresident) {
+        window.location.href = '/portal'
+      } else if (isDO) {
+        window.location.href = '/do-portal'
+      } else {
+        window.location.href = '/dashboard'
+      }
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Login failed')
     } finally {

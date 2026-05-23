@@ -113,12 +113,23 @@ export default function QRScanner() {
     setIsProcessing(true)
 
     try {
-      // Expected format: vibe:qr:<uuid>
-      const vibeMatch = data.match(/^vibe:qr:([0-9a-f-]{36})$/i)
-      if (!vibeMatch) {
+      // Accept multiple QR formats:
+      //   1. vibe:qr:<uuid>      (current)
+      //   2. vibe:email:<email>  (legacy)
+      //   3. mailto:<email>      (legacy)
+      //   4. Any email found in the QR
+      let payload: { qr_identity?: string; email?: string }
+
+      const qrMatch = data.match(/vibe:qr:([0-9a-f-]{36})/i)
+      const emailMatch = data.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
+
+      if (qrMatch) {
+        payload = { qr_identity: qrMatch[1].toLowerCase() }
+      } else if (emailMatch) {
+        payload = { email: emailMatch[0].trim().toLowerCase() }
+      } else {
         throw new Error('Invalid QR code. Please scan a VIBE member pass.')
       }
-      const qr_identity = vibeMatch[1].toLowerCase()
 
       const response = await fetch('/api/attendance/scan', {
         method: 'POST',
@@ -126,7 +137,7 @@ export default function QRScanner() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          qr_identity,
+          ...payload,
           event_id: selectedEventId
         })
       })

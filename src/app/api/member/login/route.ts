@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('id, email, full_name, role, designation')
-      .eq('email', email)
+      .ilike('email', email)
       .maybeSingle()
 
     if (error) {
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     }
 
     const cookieStore = await cookies()
-    cookieStore.set('vibe_member', email, {
+    cookieStore.set('vibe_member', (profile.email ?? email).toLowerCase(), {
       path: '/',
       maxAge: 60 * 60 * 24 * 30,
       sameSite: 'lax',
