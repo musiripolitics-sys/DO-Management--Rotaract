@@ -90,14 +90,15 @@ export default function Dashboard() {
         return
       }
 
-      // Redirect Presidents and DOs to their own portals
+      // Redirect Presidents and DOs to their own portals.
+      // DO prefix wins: "DO - Home Club President" is a DO, not a president.
       const designation: string = data.profile?.designation ?? ''
-      if (designation.toLowerCase().includes('president')) {
-        window.location.href = '/portal'
-        return
-      }
       if (/^DO\s*-/i.test(designation)) {
         window.location.href = '/do-portal'
+        return
+      }
+      if (designation.toLowerCase().includes('president')) {
+        window.location.href = '/portal'
         return
       }
 

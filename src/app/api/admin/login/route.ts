@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { signAdminToken, ADMIN_COOKIE_OPTS } from '@/lib/session'
 
 // ── Admin credentials (server-side only — never reaches the browser) ──
 // To change: edit these values and redeploy. To rotate without a deploy,
@@ -16,12 +16,8 @@ export async function POST(request: Request) {
     }
 
     const res = NextResponse.json({ success: true })
-    res.cookies.set('vibe_admin', '1', {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 86400, // 24 h
-    })
+    // Signed token — a hand-crafted "vibe_admin=1" cookie no longer works
+    res.cookies.set('vibe_admin', signAdminToken(), ADMIN_COOKIE_OPTS)
     return res
   } catch {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
@@ -30,11 +26,6 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   const res = NextResponse.json({ success: true })
-  res.cookies.set('vibe_admin', '', {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 0,
-  })
+  res.cookies.set('vibe_admin', '', { ...ADMIN_COOKIE_OPTS, maxAge: 0 })
   return res
 }

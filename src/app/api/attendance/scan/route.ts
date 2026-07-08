@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+import { isAdminRequest } from '@/lib/session'
 
 const POINTS_ON_TIME = 150        // before start time
 const POINTS_WITHIN_15_MIN = 125  // 0–15 min after start
@@ -20,8 +20,7 @@ function getAdminClient() {
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies()
-    if (cookieStore.get('vibe_admin')?.value !== '1') {
+    if (!(await isAdminRequest())) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

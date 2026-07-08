@@ -131,22 +131,24 @@ export default function LandingPage() {
         body: JSON.stringify({ email }),
       })
       const data = await res.json()
+
+      // Presidents are blocked from email-only login — open the President dialog instead
+      if (res.status === 403 && data.requiresPresidentLogin) {
+        toast.info('Presidents sign in with a password. Use the "President login" button.')
+        setPresidentEmail(email)
+        setPresidentDialogOpen(true)
+        return
+      }
+
       if (!res.ok) throw new Error(data.error || 'Login failed')
 
       toast.success(`Welcome back, ${data.member?.full_name || email}!`)
 
-      // Route based on designation
+      // Route DOs to /do-portal, everyone else to /dashboard
       const designation: string = data.member?.designation ?? ''
-      const isPresident = designation.toLowerCase().includes('president')
       const isDO = /^DO\s*-/i.test(designation)
 
-      if (isPresident) {
-        window.location.href = '/portal'
-      } else if (isDO) {
-        window.location.href = '/do-portal'
-      } else {
-        window.location.href = '/dashboard'
-      }
+      window.location.href = isDO ? '/do-portal' : '/dashboard'
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Login failed')
     } finally {

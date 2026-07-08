@@ -65,7 +65,9 @@ export default function AddMember() {
         return
       }
       const me = await meRes.json()
-      const isPresident = Boolean(me.profile?.designation?.toLowerCase().includes('president'))
+      // DO prefix wins: DOs are never presidents even if their role title says so
+      const designation: string = me.profile?.designation ?? ''
+      const isPresident = !/^DO\s*-/i.test(designation) && designation.toLowerCase().includes('president')
       setAuthorized(isPresident)
       setPresidentClub(me.profile?.club_name ?? null)
     }

@@ -16,7 +16,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (pathname.startsWith('/admin') && adminCookie !== '1') {
+  // Presence check only — signature verification happens in the API routes
+  // (middleware runs on the Edge runtime, which lacks node:crypto)
+  if (pathname.startsWith('/admin') && !adminCookie) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)

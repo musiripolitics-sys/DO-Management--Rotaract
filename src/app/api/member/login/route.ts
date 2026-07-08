@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { signSession, isPresidentDesignation, MEMBER_COOKIE_OPTS } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -37,12 +38,20 @@ export async function POST(request: Request) {
       )
     }
 
+    // Block Presidents from email-only login — they must use the password flow.
+    // (DO-prefixed designations like "DO - Home Club President" are NOT presidents.)
+    if (isPresidentDesignation(profile.designation)) {
+      return NextResponse.json(
+        {
+          error: 'Presidents must sign in using the "President login" button (top right) with their password.',
+          requiresPresidentLogin: true,
+        },
+        { status: 403 },
+      )
+    }
+
     const cookieStore = await cookies()
-    cookieStore.set('vibe_member', (profile.email ?? email).toLowerCase(), {
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
-      sameSite: 'lax',
-    })
+    cookieStore.set('vibe_member', signSession(profile.email ?? email), MEMBER_COOKIE_OPTS)
 
     return NextResponse.json({ success: true, member: profile })
   } catch (error: unknown) {
@@ -55,6 +64,6 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   const cookieStore = await cookies()
-  cookieStore.set('vibe_member', '', { path: '/', maxAge: 0 })
+  cookieStore.set('vibe_member', '', { ...MEMBER_COOKIE_OPTS, maxAge: 0 })
   return NextResponse.json({ success: true })
 }

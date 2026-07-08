@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+import { isAdminRequest } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -12,8 +12,7 @@ function getAdminClient() {
 }
 
 async function requireAdmin() {
-  const cookieStore = await cookies()
-  return cookieStore.get('vibe_admin')?.value === '1'
+  return isAdminRequest()
 }
 
 type Params = { params: Promise<{ id: string }> }

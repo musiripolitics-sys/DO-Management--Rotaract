@@ -59,9 +59,10 @@ export default function DOPortal() {
       }
       const data = await res.json()
 
+      // DO prefix wins: "DO - Home Club President" is a DO, not a president
       const designation: string = data.profile?.designation ?? ''
       const isDO = /^DO\s*-/i.test(designation)
-      const isPresident = designation.toLowerCase().includes('president')
+      const isPresident = !isDO && designation.toLowerCase().includes('president')
 
       if (isPresident) {
         window.location.href = '/portal'

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
 import { sendWelcomeEmail } from '@/lib/email'
+import { getSessionEmail, isPresidentDesignation } from '@/lib/session'
 
 const DEFAULT_PASSWORD = 'Rotaract@3233'
 
@@ -16,26 +16,25 @@ function getAdminClient() {
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies()
-    const email = cookieStore.get('vibe_member')?.value
+    const email = await getSessionEmail()
     if (!email) {
       return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
     }
 
     const supabase = getAdminClient()
 
-    // 1. Verify caller is a President
+    // 1. Verify caller is a President (DO-prefixed roles don't count)
     const { data: callerProfile, error: callerError } = await supabase
       .from('profiles')
       .select('id, designation, club_name')
-      .eq('email', email)
-      .single()
+      .ilike('email', email)
+      .maybeSingle()
 
     if (callerError || !callerProfile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
 
-    if (!callerProfile.designation?.toLowerCase().includes('president')) {
+    if (!isPresidentDesignation(callerProfile.designation)) {
       return NextResponse.json({ error: 'Only Presidents can add members.' }, { status: 403 })
     }
 

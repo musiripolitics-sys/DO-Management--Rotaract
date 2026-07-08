@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+import { getSessionEmail } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -12,15 +12,14 @@ function getAdminClient() {
 }
 
 async function getCallerProfile() {
-  const cookieStore = await cookies()
-  const email = cookieStore.get('vibe_member')?.value
+  const email = await getSessionEmail()
   if (!email) return null
   const supabase = getAdminClient()
   const { data } = await supabase
     .from('profiles')
     .select('id')
-    .eq('email', email)
-    .single()
+    .ilike('email', email)
+    .maybeSingle()
   return data ?? null
 }
 

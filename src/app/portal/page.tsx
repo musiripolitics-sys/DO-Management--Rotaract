@@ -187,8 +187,9 @@ export default function PresidentPortal() {
     }
   }
 
-  function handleSignOut() {
-    document.cookie = 'vibe_member=; path=/; max-age=0'
+  async function handleSignOut() {
+    // Cookie is HttpOnly now — must be cleared server-side
+    await fetch('/api/member/login', { method: 'DELETE' })
     window.location.href = '/'
   }
 

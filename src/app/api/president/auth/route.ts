@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { scrypt, randomBytes, timingSafeEqual } from 'crypto'
 import { promisify } from 'util'
+import { signSession, isPresidentDesignation, MEMBER_COOKIE_OPTS } from '@/lib/session'
 
 const scryptAsync = promisify(scrypt)
 
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('id, email, full_name, designation, president_password_hash')
-      .eq('email', email)
+      .ilike('email', email)
       .maybeSingle()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -58,8 +59,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const isPresident = Boolean(profile.designation?.toLowerCase().includes('president'))
-    if (!isPresident) {
+    // DO-prefixed roles (e.g. "DO - Home Club President") are not club presidents
+    if (!isPresidentDesignation(profile.designation)) {
       return NextResponse.json(
         { error: 'This account does not have president access.' },
         { status: 403 },
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
       if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
       const cookieStore = await cookies()
-      cookieStore.set('vibe_member', email, { path: '/', maxAge: 60 * 60 * 24 * 30, sameSite: 'lax' })
+      cookieStore.set('vibe_member', signSession(profile.email ?? email), MEMBER_COOKIE_OPTS)
 
       return NextResponse.json({ success: true, name: profile.full_name })
     }
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
       }
 
       const cookieStore = await cookies()
-      cookieStore.set('vibe_member', email, { path: '/', maxAge: 60 * 60 * 24 * 30, sameSite: 'lax' })
+      cookieStore.set('vibe_member', signSession(profile.email ?? email), MEMBER_COOKIE_OPTS)
 
       return NextResponse.json({ success: true, name: profile.full_name })
     }

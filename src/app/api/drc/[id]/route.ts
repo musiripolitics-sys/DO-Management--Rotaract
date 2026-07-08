@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
 import { sendBookingConfirmationEmail } from '@/lib/email'
+import { getSessionEmail, isPresidentDesignation } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -13,17 +13,16 @@ function getAdminClient() {
 }
 
 async function getPresidentProfile() {
-  const cookieStore = await cookies()
-  const email = cookieStore.get('vibe_member')?.value
+  const email = await getSessionEmail()
   if (!email) return null
   const supabase = getAdminClient()
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, full_name, email, designation')
-    .eq('email', email)
-    .single()
+    .ilike('email', email)
+    .maybeSingle()
   if (!profile) return null
-  if (!profile.designation?.toLowerCase().includes('president')) return null
+  if (!isPresidentDesignation(profile.designation)) return null
   return profile
 }
 
