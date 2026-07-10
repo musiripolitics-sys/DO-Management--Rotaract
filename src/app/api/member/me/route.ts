@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getSessionEmail } from '@/lib/session'
+import { getSession, dashboardForRole, type AccessRole } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -13,8 +13,8 @@ function getAdminClient() {
 
 export async function GET() {
   try {
-    const email = await getSessionEmail()
-    if (!email) {
+    const session = await getSession()
+    if (!session || !session.email) {
       return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
     }
 
@@ -23,7 +23,7 @@ export async function GET() {
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
-      .ilike('email', email)
+      .ilike('email', session.email)
       .maybeSingle()
 
     if (error || !profile) {
@@ -52,11 +52,14 @@ export async function GET() {
       .order('start_time', { ascending: true })
       .limit(8)
 
+    const role = (profile.access_role ?? 'member') as AccessRole
     return NextResponse.json({
       profile,
       attendance: attendance ?? [],
       rank,
       upcomingEvents: upcomingEvents ?? [],
+      role,
+      dashboard: dashboardForRole(role),
     })
   } catch (error: unknown) {
     return NextResponse.json(
@@ -69,10 +72,11 @@ export async function GET() {
 // ── PATCH: update editable profile fields ────────────────────────────────────
 export async function PATCH(request: Request) {
   try {
-    const email = await getSessionEmail()
-    if (!email) {
+    const session = await getSession()
+    if (!session || !session.email) {
       return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
     }
+    const email = session.email
 
     const body = await request.json()
 

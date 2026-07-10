@@ -16,7 +16,6 @@ import {
   MapPin,
   Medal,
   QrCode,
-  Shield,
   Sparkles,
   TrendingUp,
   Trophy,
@@ -82,20 +81,15 @@ const VIBE_VALUES = [
 ]
 
 export default function LandingPage() {
-  const [email, setEmail] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [adminDialogOpen, setAdminDialogOpen] = useState(false)
-  const [adminUsername, setAdminUsername] = useState('')
-  const [adminPassword, setAdminPassword] = useState('')
-  const [adminLoading, setAdminLoading] = useState(false)
-  const [presidentDialogOpen, setPresidentDialogOpen] = useState(false)
-  const [presidentStep, setPresidentStep] = useState<'email' | 'set-password' | 'enter-password'>('email')
-  const [presidentEmail, setPresidentEmail] = useState('')
-  const [presidentName, setPresidentName] = useState('')
-  const [presidentPassword, setPresidentPassword] = useState('')
-  const [presidentConfirm, setPresidentConfirm] = useState('')
-  const [showPresidentPw, setShowPresidentPw] = useState(false)
-  const [presidentLoading, setPresidentLoading] = useState(false)
+  // ── Unified login state ──
+  const [loginOpen, setLoginOpen] = useState(false)
+  const [loginStep, setLoginStep] = useState<'identifier' | 'password' | 'set-password'>('identifier')
+  const [identifier, setIdentifier] = useState('') // email or admin username
+  const [loginName, setLoginName] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loginLoading, setLoginLoading] = useState(false)
   const [home, setHome] = useState<HomeData | null>(null)
   const [navScrolled, setNavScrolled] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
@@ -120,140 +114,93 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const handleMemberLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email) return
-    setIsLoading(true)
+  const resetLogin = () => {
+    setLoginStep('identifier')
+    setLoginName('')
+    setPassword('')
+    setConfirmPassword('')
+    setShowPassword(false)
+  }
+
+  const openLogin = (prefill = '') => {
+    if (prefill) setIdentifier(prefill)
+    resetLogin()
+    setLoginOpen(true)
+  }
+
+  // Step 1 — look up the account and decide password vs first-time setup
+  const runCheck = async (id: string) => {
+    if (!id.trim()) return
+    setLoginLoading(true)
     try {
-      const res = await fetch('/api/member/login', {
+      const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ action: 'check', identifier: id }),
       })
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not verify that account')
+      setLoginName(data.name || id)
+      setLoginStep(data.hasPassword ? 'password' : 'set-password')
+      setLoginOpen(true)
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Could not verify that account')
+    } finally {
+      setLoginLoading(false)
+    }
+  }
 
-      // Presidents are blocked from email-only login — open the President dialog instead
-      if (res.status === 403 && data.requiresPresidentLogin) {
-        toast.info('Presidents sign in with a password. Use the "President login" button.')
-        setPresidentEmail(email)
-        setPresidentDialogOpen(true)
+  // Step 2a — sign in with an existing password
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoginLoading(true)
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', identifier, password }),
+      })
+      const data = await res.json()
+      if (res.status === 400 && data.needsSetup) {
+        setLoginStep('set-password')
         return
       }
-
       if (!res.ok) throw new Error(data.error || 'Login failed')
-
-      toast.success(`Welcome back, ${data.member?.full_name || email}!`)
-
-      // Route DOs to /do-portal, everyone else to /dashboard
-      const designation: string = data.member?.designation ?? ''
-      const isDO = /^DO\s*-/i.test(designation)
-
-      window.location.href = isDO ? '/do-portal' : '/dashboard'
+      toast.success(`Welcome back, ${data.name || loginName}!`)
+      window.location.href = data.dashboard || '/dashboard'
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Login failed')
     } finally {
-      setIsLoading(false)
+      setLoginLoading(false)
     }
   }
 
-  const resetPresidentDialog = () => {
-    setPresidentStep('email')
-    setPresidentEmail('')
-    setPresidentName('')
-    setPresidentPassword('')
-    setPresidentConfirm('')
-    setShowPresidentPw(false)
-  }
-
-  const handlePresidentEmailCheck = async (e: React.FormEvent) => {
+  // Step 2b — first-time password creation
+  const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!presidentEmail) return
-    setPresidentLoading(true)
-    try {
-      const res = await fetch('/api/president/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'check', email: presidentEmail }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Verification failed')
-      setPresidentName(data.name || presidentEmail)
-      setPresidentStep(data.hasPassword ? 'enter-password' : 'set-password')
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Verification failed')
-    } finally {
-      setPresidentLoading(false)
-    }
-  }
-
-  const handlePresidentSetup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (presidentPassword.length < 6) {
+    if (password.length < 6) {
       toast.error('Password must be at least 6 characters')
       return
     }
-    if (presidentPassword !== presidentConfirm) {
+    if (password !== confirmPassword) {
       toast.error('Passwords do not match')
       return
     }
-    setPresidentLoading(true)
+    setLoginLoading(true)
     try {
-      const res = await fetch('/api/president/auth', {
+      const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'setup', email: presidentEmail, password: presidentPassword }),
+        body: JSON.stringify({ action: 'setup', identifier, password }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Setup failed')
-      toast.success(`Password set! Welcome, ${data.name || presidentName}!`)
-      window.location.href = '/portal'
+      toast.success(`Password set! Welcome, ${data.name || loginName}!`)
+      window.location.href = data.dashboard || '/dashboard'
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Setup failed')
     } finally {
-      setPresidentLoading(false)
-    }
-  }
-
-  const handlePresidentSignIn = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setPresidentLoading(true)
-    try {
-      const res = await fetch('/api/president/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'login', email: presidentEmail, password: presidentPassword }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Login failed')
-      toast.success(`Welcome back, ${data.name || presidentName}!`)
-      window.location.href = '/portal'
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Login failed')
-    } finally {
-      setPresidentLoading(false)
-    }
-  }
-
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setAdminLoading(true)
-    try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: adminUsername, password: adminPassword }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || 'Invalid credentials')
-        return
-      }
-      toast.success('Admin authenticated')
-      window.location.href = '/admin'
-    } catch {
-      toast.error('Something went wrong')
-    } finally {
-      setAdminLoading(false)
+      setLoginLoading(false)
     }
   }
 
@@ -303,17 +250,10 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setAdminDialogOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#1A1815]/60 hover:text-[#1A468F] border border-[#1A1815]/10 hover:border-[#1A468F]/40 bg-white rounded-full px-2.5 py-2.5 sm:px-3 sm:py-1.5 transition-colors"
-            >
-              <Shield className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden sm:inline">Admin</span>
-            </button>
-            <button
-              onClick={() => setPresidentDialogOpen(true)}
+              onClick={() => openLogin()}
               className="inline-flex items-center gap-2 rounded-full bg-[#6D28D9] hover:bg-[#5B21B6] text-white text-sm font-semibold px-5 py-2.5 transition-all shadow-[0_8px_22px_-8px_rgba(109,40,217,0.55)] hover:shadow-[0_12px_32px_-6px_rgba(109,40,217,0.7)]"
             >
-              President login
+              Sign in
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -377,13 +317,16 @@ export default function LandingPage() {
               ) : null}
             </motion.p>
 
-            {/* Member login form */}
+            {/* Unified login entry */}
             <motion.form
               id="login"
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.4 }}
-              onSubmit={handleMemberLogin}
+              onSubmit={(e) => {
+                e.preventDefault()
+                runCheck(identifier)
+              }}
               className="mt-9 max-w-lg rounded-2xl border border-[#1A1815]/10 bg-white p-5 sm:p-6 shadow-[0_30px_60px_-30px_rgba(26,24,21,0.18)]"
             >
               <div className="flex items-center justify-between mb-3">
@@ -391,32 +334,32 @@ export default function LandingPage() {
                   htmlFor="member-email"
                   className="text-xs uppercase tracking-[0.18em] text-[#1A1815]/55"
                 >
-                  Member login
+                  Sign in
                 </Label>
                 <span className="text-[10px] text-[#1A1815]/45 hidden sm:inline">
-                  No password — district email only
+                  Members, officials &amp; presidents
                 </span>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Input
                   id="member-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="member@rotaract3233.org"
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="you@rotaract3233.org"
                   className="flex-1 h-12 bg-[#FAF7F0] border-[#1A1815]/10 text-[#1A1815] placeholder:text-[#1A1815]/35 focus-visible:ring-[#6D28D9] focus-visible:border-[#6D28D9]"
                   required
                 />
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={loginLoading}
                   className="inline-flex shrink-0 items-center justify-center rounded-lg h-12 px-6 bg-[#6D28D9] hover:bg-[#5B21B6] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold border-0 shadow-[0_10px_30px_-12px_rgba(109,40,217,0.6)] transition-all"
                 >
-                  {isLoading ? (
+                  {loginLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <>
-                      Sign in
+                      Continue
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </>
                   )}
@@ -712,52 +655,59 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {/* ============= PRESIDENT DIALOG ============= */}
+      {/* ============= UNIFIED LOGIN DIALOG ============= */}
       <Dialog
-        open={presidentDialogOpen}
+        open={loginOpen}
         onOpenChange={(open) => {
-          setPresidentDialogOpen(open)
-          if (!open) resetPresidentDialog()
+          setLoginOpen(open)
+          if (!open) resetLogin()
         }}
       >
         <DialogContent className="bg-white text-[#1A1815] border-[#1A1815]/10 sm:max-w-[420px]">
 
-          {/* ── Step 1: Email ── */}
-          {presidentStep === 'email' && (
+          {/* ── Step 1: Identifier ── */}
+          {loginStep === 'identifier' && (
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg">
                   <span className="w-9 h-9 rounded-full bg-[#6D28D9]/10 flex items-center justify-center shrink-0">
-                    <Crown className="w-4 h-4 text-[#6D28D9]" />
+                    <KeyRound className="w-4 h-4 text-[#6D28D9]" />
                   </span>
-                  President Login
+                  Sign in to VIBE
                 </DialogTitle>
                 <DialogDescription className="text-[#1A1815]/55">
-                  Presidents only. Enter your registered district email to continue.
+                  Enter your district email. Admins use their username.
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handlePresidentEmailCheck} className="space-y-4 pt-2">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  runCheck(identifier)
+                }}
+                className="space-y-4 pt-2"
+              >
                 <div className="space-y-2">
-                  <Label htmlFor="president-email" className="text-xs uppercase tracking-[0.18em] text-[#1A1815]/55">
-                    Email Address
+                  <Label htmlFor="login-identifier" className="text-xs uppercase tracking-[0.18em] text-[#1A1815]/55">
+                    Email or Username
                   </Label>
                   <Input
-                    id="president-email"
-                    type="email"
-                    value={presidentEmail}
-                    onChange={(e) => setPresidentEmail(e.target.value)}
-                    placeholder="president@rotaract3233.org"
+                    id="login-identifier"
+                    type="text"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="you@rotaract3233.org"
                     className="bg-white border-[#1A1815]/15 text-[#1A1815] placeholder:text-[#1A1815]/35 focus-visible:ring-[#6D28D9] focus-visible:border-[#6D28D9]"
-                    autoComplete="email"
+                    autoComplete="username"
+                    autoFocus
                     required
                   />
                 </div>
                 <Button
                   type="submit"
-                  disabled={presidentLoading}
+                  disabled={loginLoading}
                   className="w-full bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-semibold border-0 mt-2 h-11"
                 >
-                  {presidentLoading ? (
+                  {loginLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
@@ -770,8 +720,8 @@ export default function LandingPage() {
             </>
           )}
 
-          {/* ── Step 2a: Set password (first time) ── */}
-          {presidentStep === 'set-password' && (
+          {/* ── Step 2a: First-time password ── */}
+          {loginStep === 'set-password' && (
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg">
@@ -781,20 +731,20 @@ export default function LandingPage() {
                   Set your password
                 </DialogTitle>
                 <DialogDescription className="text-[#1A1815]/55">
-                  Welcome, <span className="font-semibold text-[#1A1815]">{presidentName}</span>! Create a
-                  password — you&rsquo;ll use it every time you access the portal.
+                  Welcome, <span className="font-semibold text-[#1A1815]">{loginName}</span>! Create a
+                  password — you&rsquo;ll use it every time you sign in.
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handlePresidentSetup} className="space-y-4 pt-2">
+              <form onSubmit={handleSetPassword} className="space-y-4 pt-2">
                 <div className="space-y-2">
                   <Label className="text-xs uppercase tracking-[0.18em] text-[#1A1815]/55">
                     New Password
                   </Label>
                   <div className="relative">
                     <Input
-                      type={showPresidentPw ? 'text' : 'password'}
-                      value={presidentPassword}
-                      onChange={(e) => setPresidentPassword(e.target.value)}
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       placeholder="Min. 6 characters"
                       className="bg-white border-[#1A1815]/15 text-[#1A1815] pr-10 focus-visible:ring-[#6D28D9] focus-visible:border-[#6D28D9]"
                       autoComplete="new-password"
@@ -802,11 +752,11 @@ export default function LandingPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPresidentPw((v) => !v)}
+                      onClick={() => setShowPassword((v) => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1A1815]/40 hover:text-[#1A1815]/70"
                       tabIndex={-1}
                     >
-                      {showPresidentPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -815,9 +765,9 @@ export default function LandingPage() {
                     Confirm Password
                   </Label>
                   <Input
-                    type={showPresidentPw ? 'text' : 'password'}
-                    value={presidentConfirm}
-                    onChange={(e) => setPresidentConfirm(e.target.value)}
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repeat password"
                     className="bg-white border-[#1A1815]/15 text-[#1A1815] focus-visible:ring-[#6D28D9] focus-visible:border-[#6D28D9]"
                     autoComplete="new-password"
@@ -828,21 +778,21 @@ export default function LandingPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setPresidentStep('email')}
+                    onClick={() => setLoginStep('identifier')}
                     className="h-11 border-[#1A1815]/15 text-[#1A1815]/60 hover:text-[#1A1815]"
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
                   <Button
                     type="submit"
-                    disabled={presidentLoading}
+                    disabled={loginLoading}
                     className="flex-1 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-semibold border-0 h-11"
                   >
-                    {presidentLoading ? (
+                    {loginLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
-                        Set Password &amp; Enter Portal
+                        Set Password &amp; Sign in
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </>
                     )}
@@ -852,8 +802,8 @@ export default function LandingPage() {
             </>
           )}
 
-          {/* ── Step 2b: Enter password (returning) ── */}
-          {presidentStep === 'enter-password' && (
+          {/* ── Step 2b: Returning password ── */}
+          {loginStep === 'password' && (
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg">
@@ -864,20 +814,20 @@ export default function LandingPage() {
                 </DialogTitle>
                 <DialogDescription className="text-[#1A1815]/55">
                   Signing in as{' '}
-                  <span className="font-semibold text-[#1A1815]">{presidentName}</span>
+                  <span className="font-semibold text-[#1A1815]">{loginName}</span>
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handlePresidentSignIn} className="space-y-4 pt-2">
+              <form onSubmit={handleLogin} className="space-y-4 pt-2">
                 <div className="space-y-2">
                   <Label className="text-xs uppercase tracking-[0.18em] text-[#1A1815]/55">
                     Password
                   </Label>
                   <div className="relative">
                     <Input
-                      type={showPresidentPw ? 'text' : 'password'}
-                      value={presidentPassword}
-                      onChange={(e) => setPresidentPassword(e.target.value)}
-                      placeholder="Your portal password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Your password"
                       className="bg-white border-[#1A1815]/15 text-[#1A1815] pr-10 focus-visible:ring-[#6D28D9] focus-visible:border-[#6D28D9]"
                       autoComplete="current-password"
                       autoFocus
@@ -885,11 +835,11 @@ export default function LandingPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPresidentPw((v) => !v)}
+                      onClick={() => setShowPassword((v) => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1A1815]/40 hover:text-[#1A1815]/70"
                       tabIndex={-1}
                     >
-                      {showPresidentPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -897,17 +847,17 @@ export default function LandingPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => { setPresidentStep('email'); setPresidentPassword('') }}
+                    onClick={() => { setLoginStep('identifier'); setPassword('') }}
                     className="h-11 border-[#1A1815]/15 text-[#1A1815]/60 hover:text-[#1A1815]"
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
                   <Button
                     type="submit"
-                    disabled={presidentLoading}
+                    disabled={loginLoading}
                     className="flex-1 bg-[#6D28D9] hover:bg-[#5B21B6] text-white font-semibold border-0 h-11"
                   >
-                    {presidentLoading ? (
+                    {loginLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
@@ -921,71 +871,6 @@ export default function LandingPage() {
             </>
           )}
 
-        </DialogContent>
-      </Dialog>
-
-      {/* ============= ADMIN DIALOG ============= */}
-      <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
-        <DialogContent className="bg-white text-[#1A1815] border-[#1A1815]/10 sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <span className="w-9 h-9 rounded-full bg-[#1A468F]/10 flex items-center justify-center">
-                <Shield className="w-4 h-4 text-[#1A468F]" />
-              </span>
-              Admin Login
-            </DialogTitle>
-            <DialogDescription className="text-[#1A1815]/55">
-              Restricted area. Authorised personnel only.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleAdminLogin} className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <Label
-                htmlFor="admin-username"
-                className="text-xs uppercase tracking-[0.18em] text-[#1A1815]/55"
-              >
-                Username
-              </Label>
-              <Input
-                id="admin-username"
-                value={adminUsername}
-                onChange={(e) => setAdminUsername(e.target.value)}
-                className="bg-white border-[#1A1815]/15 text-[#1A1815] focus-visible:ring-[#1A468F] focus-visible:border-[#1A468F]"
-                autoComplete="off"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label
-                htmlFor="admin-password"
-                className="text-xs uppercase tracking-[0.18em] text-[#1A1815]/55"
-              >
-                Password
-              </Label>
-              <Input
-                id="admin-password"
-                type="password"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                className="bg-white border-[#1A1815]/15 text-[#1A1815] focus-visible:ring-[#1A468F] focus-visible:border-[#1A468F]"
-                required
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={adminLoading}
-              className="w-full bg-[#1A468F] hover:bg-[#143467] text-white font-semibold border-0 mt-2 h-11"
-            >
-              {adminLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  Sign in as Admin
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </>
-              )}
-            </Button>
-          </form>
         </DialogContent>
       </Dialog>
     </div>

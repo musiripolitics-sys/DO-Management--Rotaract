@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { isAdminRequest } from '@/lib/session'
+import { getSession, hasAccess, ADMIN_TIER } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -12,7 +12,8 @@ function getAdminClient() {
 }
 
 async function requireAdmin() {
-  return isAdminRequest()
+  const s = await getSession()
+  return hasAccess(s?.role, ADMIN_TIER)
 }
 
 export async function GET() {

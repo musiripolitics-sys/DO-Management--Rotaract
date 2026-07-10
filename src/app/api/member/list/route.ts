@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getSessionEmail } from '@/lib/session'
+import { getSession } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -13,8 +13,8 @@ function getAdminClient() {
 
 export async function GET() {
   try {
-    const email = await getSessionEmail()
-    if (!email) {
+    const session = await getSession()
+    if (!session) {
       return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
     }
 

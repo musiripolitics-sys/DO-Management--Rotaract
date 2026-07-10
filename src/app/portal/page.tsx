@@ -30,6 +30,7 @@ import {
 import { toast } from 'sonner'
 import Image from 'next/image'
 import Link from 'next/link'
+import { QRCodeSVG } from 'qrcode.react'
 
 type Profile = {
   id: string
@@ -189,7 +190,7 @@ export default function PresidentPortal() {
 
   async function handleSignOut() {
     // Cookie is HttpOnly now — must be cleared server-side
-    await fetch('/api/member/login', { method: 'DELETE' })
+    await fetch('/api/auth', { method: 'DELETE' })
     window.location.href = '/'
   }
 
@@ -259,6 +260,51 @@ export default function PresidentPortal() {
             {profile?.designation ? ` · ${profile.designation}` : ''}
           </p>
         </motion.div>
+
+        {/* ── Identity Pass (QR) ── */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+        >
+          <div className="flex flex-col sm:flex-row items-center gap-6 rounded-2xl border border-white/8 bg-white/[0.03] p-6">
+            {/* QR */}
+            <div className="shrink-0 text-center">
+              {profile?.email ? (
+                <div className="bg-white p-3 rounded-2xl shadow-[0_0_30px_-10px_rgba(45,157,219,0.4)]">
+                  <QRCodeSVG
+                    value={`vibe:email:${profile.email}`}
+                    size={150}
+                    bgColor={'#ffffff'}
+                    fgColor={'#000000'}
+                    level={'Q'}
+                    includeMargin={false}
+                  />
+                </div>
+              ) : (
+                <div className="w-[150px] h-[150px] flex items-center justify-center text-center text-xs text-red-400 px-4 border border-red-400/30 rounded-2xl">
+                  Email missing — contact admin.
+                </div>
+              )}
+            </div>
+            {/* Caption */}
+            <div className="min-w-0 text-center sm:text-left">
+              <div className="flex items-center gap-2 justify-center sm:justify-start mb-1">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] bg-[#6D28D9]/15 text-[#A78BFA] border border-[#6D28D9]/30 px-2.5 py-1 rounded-full">
+                  <Crown className="w-3 h-3" />
+                  Identity Pass
+                </span>
+              </div>
+              <h2 className="font-bold text-lg leading-tight">Your Identity Pass</h2>
+              <p className="text-sm text-white/45 mt-1">
+                Show this at event check-ins to log your attendance and earn points.
+              </p>
+              <p className="mt-3 text-[11px] text-white/35 font-mono break-all">
+                {profile?.email}
+              </p>
+            </div>
+          </div>
+        </motion.section>
 
         {/* ── DRC Events ── */}
         <motion.section

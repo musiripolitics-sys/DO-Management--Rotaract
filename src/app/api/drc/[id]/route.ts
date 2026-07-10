@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendBookingConfirmationEmail } from '@/lib/email'
-import { getSessionEmail, isPresidentDesignation } from '@/lib/session'
+import { getSession } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -13,17 +13,15 @@ function getAdminClient() {
 }
 
 async function getPresidentProfile() {
-  const email = await getSessionEmail()
-  if (!email) return null
+  const session = await getSession()
+  if (!session || session.role !== 'president' || !session.email) return null
   const supabase = getAdminClient()
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, full_name, email, designation')
-    .ilike('email', email)
+    .ilike('email', session.email)
     .maybeSingle()
-  if (!profile) return null
-  if (!isPresidentDesignation(profile.designation)) return null
-  return profile
+  return profile ?? null
 }
 
 type Params = { params: Promise<{ id: string }> }

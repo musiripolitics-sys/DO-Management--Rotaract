@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { isAdminRequest } from '@/lib/session'
+import { getSession, hasAccess, SCAN_TIER } from '@/lib/session'
 
 const POINTS_ON_TIME = 150        // before start time
 const POINTS_WITHIN_15_MIN = 125  // 0–15 min after start
@@ -20,8 +20,10 @@ function getAdminClient() {
 
 export async function POST(request: Request) {
   try {
-    if (!(await isAdminRequest())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // 1. Must be admin-tier OR sergeant to use the scanner
+    const session = await getSession()
+    if (!hasAccess(session?.role, SCAN_TIER)) {
+      return NextResponse.json({ error: 'Unauthorized scan attempt' }, { status: 401 })
     }
 
     const body = await request.json()
@@ -97,6 +99,8 @@ export async function POST(request: Request) {
       check_in_time: new Date().toISOString(),
       points_awarded: pointsAwarded,
       status,
+      // Audit: record the scanning official's profile id (null for super admin)
+      ...(session?.profileId ? { scanned_by: session.profileId } : {}),
     })
 
     if (insertError) {

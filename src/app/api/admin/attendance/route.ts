@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { isAdminRequest } from '@/lib/session'
+import { getSession, hasAccess, OVERSIGHT_TIER } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -12,7 +12,8 @@ function getAdminClient() {
 }
 
 async function ensureAdmin() {
-  return isAdminRequest()
+  const s = await getSession()
+  return hasAccess(s?.role, OVERSIGHT_TIER)
 }
 
 export async function GET(req: Request) {
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
         supabase
           .from('attendance')
           .select(
-            'id, check_in_time, status, points_awarded, profiles(id, full_name, email, club_name, designation)',
+            'id, check_in_time, status, points_awarded, profiles!user_id(id, full_name, email, club_name, designation)',
           )
           .eq('event_id', eventId)
           .order('check_in_time', { ascending: true }),

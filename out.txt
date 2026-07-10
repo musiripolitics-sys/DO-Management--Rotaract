@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+set-cookie: vibe_sergeant=2e350f22-6595-4eaa-b72a-13537293bb6a.1f31625379c9d3c72d76ffa20884e9e85a9c46f296a59f1dcd18e64751c34099; Path=/; Expires=Thu, 09 Jul 2026 12:42:38 GMT; Max-Age=86400; HttpOnly; SameSite=lax
+Date: Wed, 08 Jul 2026 12:42:38 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"success":true,"role":"sergeant"}

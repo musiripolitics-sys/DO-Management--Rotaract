@@ -59,17 +59,9 @@ export default function DOPortal() {
       }
       const data = await res.json()
 
-      // DO prefix wins: "DO - Home Club President" is a DO, not a president
-      const designation: string = data.profile?.designation ?? ''
-      const isDO = /^DO\s*-/i.test(designation)
-      const isPresident = !isDO && designation.toLowerCase().includes('president')
-
-      if (isPresident) {
-        window.location.href = '/portal'
-        return
-      }
-      if (!isDO) {
-        window.location.href = '/dashboard'
+      // Only district officials belong here; everyone else goes to their dashboard
+      if (data.role !== 'district_official') {
+        window.location.href = data.dashboard || '/dashboard'
         return
       }
 
@@ -82,7 +74,7 @@ export default function DOPortal() {
   }, [])
 
   const handleSignOut = async () => {
-    await fetch('/api/member/login', { method: 'DELETE' })
+    await fetch('/api/auth', { method: 'DELETE' })
     window.location.href = '/'
   }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getSessionEmail } from '@/lib/session'
+import { getSession } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -12,13 +12,13 @@ function getAdminClient() {
 }
 
 async function getCallerProfile() {
-  const email = await getSessionEmail()
-  if (!email) return null
+  const session = await getSession()
+  if (!session || !session.email) return null
   const supabase = getAdminClient()
   const { data } = await supabase
     .from('profiles')
     .select('id')
-    .ilike('email', email)
+    .ilike('email', session.email)
     .maybeSingle()
   return data ?? null
 }

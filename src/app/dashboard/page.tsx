@@ -90,15 +90,10 @@ export default function Dashboard() {
         return
       }
 
-      // Redirect Presidents and DOs to their own portals.
-      // DO prefix wins: "DO - Home Club President" is a DO, not a president.
-      const designation: string = data.profile?.designation ?? ''
-      if (/^DO\s*-/i.test(designation)) {
-        window.location.href = '/do-portal'
-        return
-      }
-      if (designation.toLowerCase().includes('president')) {
-        window.location.href = '/portal'
+      // Redirect roles that have their own dashboard away from the member view.
+      const role: string = data.role ?? 'member'
+      if (data.dashboard && data.dashboard !== '/dashboard') {
+        window.location.href = data.dashboard
         return
       }
 
@@ -119,7 +114,7 @@ export default function Dashboard() {
         })
         .catch(() => {})
 
-      const authorized = Boolean(data.profile?.designation?.toLowerCase().includes('president'))
+      const authorized = role === 'president'
 
       setIsAuthorized(authorized)
 
@@ -141,7 +136,7 @@ export default function Dashboard() {
   }, [])
 
   const handleSignOut = async () => {
-    await fetch('/api/member/login', { method: 'DELETE' })
+    await fetch('/api/auth', { method: 'DELETE' })
     window.location.href = '/'
   }
 

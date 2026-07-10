@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { isAdminRequest } from '@/lib/session'
+import { getSession, hasAccess, MOM_TIER } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -18,8 +18,10 @@ function one<T>(v: T | T[] | null | undefined): T | null {
 
 export async function GET() {
   try {
-    if (!(await isAdminRequest())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await getSession()
+    if (!session) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
+    if (!hasAccess(session.role, MOM_TIER)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const supabase = getAdminClient()
@@ -43,7 +45,7 @@ export async function GET() {
       supabase
         .from('attendance')
         .select(
-          'id, event_id, check_in_time, status, points_awarded, profiles(id, full_name, club_name)',
+          'id, event_id, check_in_time, status, points_awarded, profiles!user_id(id, full_name, club_name)',
         ),
 
       supabase.from('profiles').select('club_name'),
@@ -51,7 +53,7 @@ export async function GET() {
       supabase
         .from('attendance')
         .select(
-          'id, status, check_in_time, points_awarded, profiles(full_name, email), events(name)',
+          'id, status, check_in_time, points_awarded, profiles!user_id(full_name, email), events(name)',
         )
         .order('check_in_time', { ascending: false })
         .limit(10),
