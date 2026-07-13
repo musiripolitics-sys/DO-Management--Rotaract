@@ -53,6 +53,22 @@ export const COOKIE_OPTS = {
 export const ADMIN_TIER: AccessRole[] = ['super_admin', 'drr', 'adrr']
 // Can manage Minutes of Meeting (full admins + the district secretariat)
 export const MOM_TIER: AccessRole[] = [...ADMIN_TIER, 'drs', 'adrs']
+// Monthly club project reports — DRS's data-driven dashboard (NOT ADRS)
+export const PROJECTS_TIER: AccessRole[] = [...ADMIN_TIER, 'drs']
+// Roles the super admin may assign from the role manager.
+// `super_admin` is env-based and can never be granted to a DB profile.
+export const ASSIGNABLE_ROLES: AccessRole[] = [
+  'drr',
+  'adrr',
+  'drs',
+  'adrs',
+  'chief_sergeant',
+  'sergeant',
+  'president',
+  'district_official',
+  'secretary',
+  'member',
+]
 // Can operate the scanner + write attendance
 export const SCAN_TIER: AccessRole[] = [...ADMIN_TIER, 'chief_sergeant', 'sergeant']
 // Can manage the sergeant team (chief sergeant + full admins)
@@ -72,12 +88,15 @@ export function hasAccess(role: AccessRole | null | undefined, allowed: AccessRo
 
 export function dashboardForRole(role: AccessRole): string {
   if (ADMIN_TIER.includes(role)) return '/admin'
-  if (role === 'drs' || role === 'adrs') return '/admin/mom'
+  if (role === 'drs') return '/admin/projects' // data-driven: monthly club reports
+  if (role === 'adrs') return '/admin/mom' // DRC meetings + MoM
+
   if (role === 'chief_sergeant') return '/admin/sergeant-team'
   if (role === 'sergeant') return '/admin/scanner'
   if (role === 'president') return '/portal'
+  if (role === 'secretary') return '/secretary'
   if (role === 'district_official') return '/do-portal'
-  return '/dashboard' // secretary + member
+  return '/dashboard' // member
 }
 
 /* ── HMAC signing ────────────────────────────────────────────── */
@@ -154,18 +173,20 @@ export async function getSession(): Promise<Session | null> {
   const supabase = adminClient()
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, email, full_name, club_name, designation, access_role')
+    .select('id, email, full_name, designation, access_role, clubs:club_id(name)')
     .ilike('email', payload)
     .maybeSingle()
 
   if (!profile) return null
+
+  const club = Array.isArray(profile.clubs) ? profile.clubs[0] : profile.clubs
 
   return {
     email: profile.email,
     role: (profile.access_role ?? 'member') as AccessRole,
     profileId: profile.id,
     fullName: profile.full_name ?? null,
-    clubName: profile.club_name ?? null,
+    clubName: (club as { name?: string } | null)?.name ?? null,
     designation: profile.designation ?? null,
   }
 }

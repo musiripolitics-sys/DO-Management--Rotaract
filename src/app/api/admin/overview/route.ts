@@ -45,10 +45,10 @@ export async function GET() {
       supabase
         .from('attendance')
         .select(
-          'id, event_id, check_in_time, status, points_awarded, profiles!user_id(id, full_name, club_name)',
+          'id, event_id, check_in_time, status, points_awarded, profiles!user_id(id, full_name, clubs:club_id(name))',
         ),
 
-      supabase.from('profiles').select('club_name'),
+      supabase.from('profiles').select('clubs:club_id(name)'),
 
       supabase
         .from('attendance')
@@ -61,6 +61,20 @@ export async function GET() {
 
     const totalMembers = membersRes.count ?? 0
     const events = eventsRes.data ?? []
+
+    // Club name out of a (possibly array-shaped) profiles→clubs nested embed.
+    type ProfileEmbed = {
+      id?: string
+      full_name?: string | null
+      clubs?: { name?: string | null } | { name?: string | null }[] | null
+    }
+    const profileOf = (p: unknown): ProfileEmbed | null =>
+      one<ProfileEmbed>(p as ProfileEmbed | ProfileEmbed[] | null)
+    const clubOf = (p: unknown): string | null => {
+      const clubs = profileOf(p)?.clubs
+      const club = Array.isArray(clubs) ? clubs[0] : clubs
+      return club?.name ?? null
+    }
 
     // ── DRC bookings (graceful if table missing) ─────────────────────────────
     const drcEventIds = events
@@ -139,8 +153,8 @@ export async function GET() {
           totalMembers > 0 ? Math.round((scanners.length / totalMembers) * 100) : 0,
         scanners: scanners.slice(0, 10).map((s) => ({
           id: s.id,
-          full_name: one<{ id: string; full_name: string | null; club_name: string | null }>(s.profiles as any)?.full_name ?? null,
-          club_name: one<{ id: string; full_name: string | null; club_name: string | null }>(s.profiles as any)?.club_name ?? null,
+          full_name: profileOf(s.profiles)?.full_name ?? null,
+          club_name: clubOf(s.profiles),
           status: s.status,
           points_awarded: s.points_awarded,
           check_in_time: s.check_in_time,
@@ -154,23 +168,26 @@ export async function GET() {
       }
     })
 
-    // ── Club stats ───────────────────────────────────────────────────────────
+    // ── Club stats (club_id join — legacy club_name column is stale) ─────────
     const clubScanMap = new Map<string, number>()
     for (const row of allAttendanceRes.data ?? []) {
-      const club =
-        one<{ id: string; full_name: string | null; club_name: string | null }>(row.profiles as any)
-          ?.club_name ?? 'Unknown'
+      const club = clubOf(row.profiles) ?? 'Unknown'
       clubScanMap.set(club, (clubScanMap.get(club) ?? 0) + 1)
+    }
+
+    const memberClubName = (p: { clubs?: unknown }): string | null => {
+      const club = Array.isArray(p.clubs) ? p.clubs[0] : p.clubs
+      return (club as { name?: string | null } | null)?.name ?? null
     }
 
     const membersByClub = new Map<string, number>()
     for (const p of profilesClubRes.data ?? []) {
-      const club = p.club_name ?? 'Unknown'
+      const club = memberClubName(p) ?? 'Unknown'
       membersByClub.set(club, (membersByClub.get(club) ?? 0) + 1)
     }
 
     const totalClubs = new Set(
-      (profilesClubRes.data ?? []).map((p) => p.club_name).filter(Boolean),
+      (profilesClubRes.data ?? []).map(memberClubName).filter(Boolean),
     ).size
 
     const clubStats = Array.from(clubScanMap.entries())

@@ -36,7 +36,7 @@ export async function GET(req: Request) {
         supabase
           .from('attendance')
           .select(
-            'id, check_in_time, status, points_awarded, profiles!user_id(id, full_name, email, club_name, designation)',
+            'id, check_in_time, status, points_awarded, profiles!user_id(id, full_name, email, designation, clubs:club_id(name))',
           )
           .eq('event_id', eventId)
           .order('check_in_time', { ascending: true }),
@@ -46,9 +46,19 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: eventRes.error.message }, { status: 404 })
       }
 
+      // Flatten the clubs join back to `club_name` so the UI contract holds
+      // (the legacy profiles.club_name column is stale for new members).
+      const attendees = (attendanceRes.data ?? []).map((row) => {
+        const prof = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+        if (!prof) return row
+        const clubs = (prof as { clubs?: { name?: string } | { name?: string }[] | null }).clubs
+        const club = Array.isArray(clubs) ? clubs[0] : clubs
+        return { ...row, profiles: { ...prof, club_name: club?.name ?? null } }
+      })
+
       return NextResponse.json({
         event: eventRes.data,
-        attendees: attendanceRes.data ?? [],
+        attendees,
       })
     }
 

@@ -81,14 +81,17 @@ export async function GET() {
     if (referrerIds.length > 0) {
       const { data: referrerProfiles } = await supabase
         .from('profiles')
-        .select('id, full_name, designation, club_name, professional_photo_url')
+        .select('id, full_name, designation, club_id, clubs:club_id(name), professional_photo_url')
         .in('id', referrerIds)
-        
+
       if (referrerProfiles) {
-        leaderboard = referrerProfiles.map(p => ({
-          profile: p,
-          count: referralCounts[p.id]
-        })).sort((a, b) => b.count - a.count)
+        leaderboard = referrerProfiles.map(p => {
+          const c = Array.isArray(p.clubs) ? p.clubs[0] : p.clubs
+          return {
+            profile: { ...p, club_name: (c as { name?: string } | null)?.name ?? null },
+            count: referralCounts[p.id],
+          }
+        }).sort((a, b) => b.count - a.count)
       }
     }
 

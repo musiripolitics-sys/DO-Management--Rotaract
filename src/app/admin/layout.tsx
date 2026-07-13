@@ -12,6 +12,10 @@ import {
   FileText,
   Shield,
   UsersRound,
+  Building2,
+  FolderKanban,
+  UserCog,
+  UserPlus,
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -21,9 +25,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const router = useRouter()
   const [authorized, setAuthorized] = useState(false)
-  // "admin" = full admin; "secretariat" = DRS/ADRS (MoM + read-only oversight);
+  // "admin" = full admin; "drs" = District Secretary (Projects + MoM + oversight);
+  // "adrs" = Associate DRS (DRC MoM + oversight);
   // "chief" = chief sergeant (team + scan); "sergeant" = scan only
-  const [role, setRole] = useState<'admin' | 'secretariat' | 'chief' | 'sergeant' | null>(null)
+  const [role, setRole] = useState<'admin' | 'drs' | 'adrs' | 'chief' | 'sergeant' | null>(null)
+  const [isSuper, setIsSuper] = useState(false)
 
   useEffect(() => {
     fetch('/api/auth/me?t=' + Date.now())
@@ -33,26 +39,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           window.location.href = '/'
           return
         }
-        const uiRole: 'admin' | 'secretariat' | 'chief' | 'sergeant' = d.canAdmin
+        const uiRole: 'admin' | 'drs' | 'adrs' | 'chief' | 'sergeant' = d.canAdmin
           ? 'admin'
-          : d.canMom
-          ? 'secretariat'
+          : d.role === 'drs'
+          ? 'drs'
+          : d.role === 'adrs'
+          ? 'adrs'
           : d.canManageSergeants
           ? 'chief'
           : 'sergeant'
         setAuthorized(true)
         setRole(uiRole)
+        setIsSuper(d.role === 'super_admin')
 
         if (uiRole === 'sergeant' || uiRole === 'chief') {
-          // Sergeants: scanner/attendance/DRC. Chief also gets the team page.
+          // Sergeants: scanner/attendance/DRC + membership approvals.
+          // Chief also gets the team page.
           const base =
             pathname.startsWith('/admin/scanner') ||
             pathname.startsWith('/admin/attendance') ||
+            pathname.startsWith('/admin/registrations') ||
             pathname.startsWith('/admin/drc')
           const allowed = base || (uiRole === 'chief' && pathname.startsWith('/admin/sergeant-team'))
           if (!allowed) router.replace(uiRole === 'chief' ? '/admin/sergeant-team' : '/admin/scanner')
-        } else if (uiRole === 'secretariat') {
-          // DRS/ADRS: MoM (manage) + read-only Overview, DRC, Attendance
+        } else if (uiRole === 'drs') {
+          // DRS: data-driven — Projects (manage) + MoM + Overview, DRC, Attendance
+          const allowed =
+            pathname === '/admin' ||
+            pathname.startsWith('/admin/projects') ||
+            pathname.startsWith('/admin/mom') ||
+            pathname.startsWith('/admin/drc') ||
+            pathname.startsWith('/admin/attendance')
+          if (!allowed) router.replace('/admin/projects')
+        } else if (uiRole === 'adrs') {
+          // ADRS: DRC meetings + MoM (create/publish) + Overview, Attendance
           const allowed =
             pathname === '/admin' ||
             pathname.startsWith('/admin/mom') ||
@@ -80,16 +100,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const navItems = [
-    { name: 'Overview', href: '/admin', icon: LayoutDashboard, roles: ['admin', 'secretariat'] },
+    { name: 'Overview', href: '/admin', icon: LayoutDashboard, roles: ['admin', 'drs', 'adrs'] },
     { name: 'Events', href: '/admin/events', icon: CalendarPlus, roles: ['admin'] },
     { name: 'Members', href: '/admin/members', icon: Users, roles: ['admin'] },
-    { name: 'MoM', href: '/admin/mom', icon: FileText, roles: ['admin', 'secretariat'] },
+    // Public-registration approvals — admins + the sergeant team (attendance desk).
+    { name: 'Requests', href: '/admin/registrations', icon: UserPlus, roles: ['admin', 'chief', 'sergeant'] },
+    { name: 'Clubs', href: '/admin/clubs', icon: Building2, roles: ['admin'] },
+    { name: 'MoM', href: '/admin/mom', icon: FileText, roles: ['admin', 'drs', 'adrs'] },
+    // Projects = the DRS data dashboard. ADRS deliberately excluded.
+    { name: 'Projects', href: '/admin/projects', icon: FolderKanban, roles: ['admin', 'drs'] },
     { name: 'Teams', href: '/admin/teams', icon: UsersRound, roles: ['admin'] },
     { name: 'My Team', href: '/admin/sergeant-team', icon: Shield, roles: ['chief'] },
-    { name: 'DRC', href: '/admin/drc', icon: BookMarked, roles: ['admin', 'secretariat', 'chief', 'sergeant'] },
-    { name: 'Attendance', href: '/admin/attendance', icon: ClipboardList, roles: ['admin', 'secretariat', 'chief', 'sergeant'] },
+    { name: 'DRC', href: '/admin/drc', icon: BookMarked, roles: ['admin', 'drs', 'adrs', 'chief', 'sergeant'] },
+    { name: 'Attendance', href: '/admin/attendance', icon: ClipboardList, roles: ['admin', 'drs', 'adrs', 'chief', 'sergeant'] },
     { name: 'Scanner', href: '/admin/scanner', icon: QrCode, roles: ['admin', 'chief', 'sergeant'] },
   ].filter(item => role && item.roles.includes(role))
+  // Role manager — super admin only (env account), appended after Scanner.
+  if (isSuper) navItems.push({ name: 'Roles', href: '/admin/roles', icon: UserCog, roles: ['admin'] })
 
   return (
     <div className="min-h-screen bg-[#FAFAF9] text-[#1A1815] flex flex-col md:flex-row">
@@ -109,8 +136,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               ? 'Sergeant'
               : role === 'chief'
               ? 'Chief Sergeant'
-              : role === 'secretariat'
-              ? 'Secretariat'
+              : role === 'drs'
+              ? 'DRS'
+              : role === 'adrs'
+              ? 'ADRS'
               : 'Admin'}
           </span>
         </Link>

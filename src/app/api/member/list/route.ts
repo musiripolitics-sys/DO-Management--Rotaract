@@ -21,12 +21,17 @@ export async function GET() {
     const supabase = getAdminClient()
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, designation, club_name')
+      .select('id, full_name, designation, club_id, clubs:club_id(name)')
       .order('full_name', { ascending: true })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    return NextResponse.json({ members: data ?? [] })
+    const members = (data ?? []).map((p) => {
+      const c = Array.isArray(p.clubs) ? p.clubs[0] : p.clubs
+      return { ...p, club_name: (c as { name?: string } | null)?.name ?? null }
+    })
+
+    return NextResponse.json({ members })
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal Server Error' },

@@ -1,16 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
+import { motion, useInView } from 'framer-motion'
 import {
+  Activity,
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
+  BookMarked,
+  Building2,
   Calendar,
   Crown,
   Eye,
   EyeOff,
+  FileText,
+  FolderKanban,
+  HeartHandshake,
   KeyRound,
   Loader2,
   MapPin,
@@ -19,6 +25,8 @@ import {
   Sparkles,
   TrendingUp,
   Trophy,
+  UserPlus,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +39,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import RegisterForm from '@/components/RegisterForm'
 
 type UpcomingEvent = {
   id: string
@@ -46,10 +55,22 @@ type LeaderboardEntry = {
   total_points: number | null
 }
 
+type HomeStats = {
+  members: number
+  clubs: { total: number; college: number; community: number }
+  eventsHeld: number
+  totalCheckIns: number
+  totalPoints: number
+}
+
 type HomeData = {
   upcomingEvents: UpcomingEvent[]
   leaderboard: LeaderboardEntry[]
   memberCount: number
+  stats?: HomeStats
+  activityByMonth?: { label: string; count: number }[]
+  topClubs?: { name: string; scans: number; members: number }[]
+  impact?: { projects: number; beneficiaries: number; volunteers: number } | null
 }
 
 const HOW_IT_WORKS = [
@@ -81,6 +102,8 @@ const VIBE_VALUES = [
 ]
 
 export default function LandingPage() {
+  // ── Register-as-member dialog ──
+  const [registerOpen, setRegisterOpen] = useState(false)
   // ── Unified login state ──
   const [loginOpen, setLoginOpen] = useState(false)
   const [loginStep, setLoginStep] = useState<'identifier' | 'password' | 'set-password'>('identifier')
@@ -250,8 +273,16 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setRegisterOpen(true)}
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#6D28D9]/30 text-[#6D28D9] hover:bg-[#F5F3FF] text-sm font-semibold px-3.5 sm:px-4 py-2.5 transition-all"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span className="hidden sm:inline">Register as member</span>
+              <span className="sm:hidden">Register</span>
+            </button>
+            <button
               onClick={() => openLogin()}
-              className="inline-flex items-center gap-2 rounded-full bg-[#6D28D9] hover:bg-[#5B21B6] text-white text-sm font-semibold px-5 py-2.5 transition-all shadow-[0_8px_22px_-8px_rgba(109,40,217,0.55)] hover:shadow-[0_12px_32px_-6px_rgba(109,40,217,0.7)]"
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-[#6D28D9] hover:bg-[#5B21B6] text-white text-sm font-semibold px-4 sm:px-5 py-2.5 transition-all shadow-[0_8px_22px_-8px_rgba(109,40,217,0.55)] hover:shadow-[0_12px_32px_-6px_rgba(109,40,217,0.7)]"
             >
               Sign in
               <ArrowRight className="w-4 h-4" />
@@ -375,20 +406,20 @@ export default function LandingPage() {
               className="mt-10 grid grid-cols-3 gap-4 sm:gap-6 max-w-lg"
             >
               <Stat
-                value={home?.memberCount ? home.memberCount.toLocaleString() : '—'}
+                value={<CountUp value={home?.stats?.members ?? home?.memberCount} />}
                 label="Members"
                 color="#6D28D9"
               />
               <Stat
-                value={
-                  home?.upcomingEvents
-                    ? home.upcomingEvents.length.toString()
-                    : '—'
-                }
-                label="Live events"
+                value={<CountUp value={home?.stats?.clubs.total} />}
+                label="Clubs"
                 color="#1A468F"
               />
-              <Stat value="3233" label="District" color="#F58220" />
+              <Stat
+                value={<CountUp value={home?.stats?.totalCheckIns} />}
+                label="Check-ins"
+                color="#F58220"
+              />
             </motion.div>
           </div>
 
@@ -442,6 +473,105 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============= DISTRICT PULSE — live analytics ============= */}
+      <section id="pulse" className="relative px-6 py-20 lg:py-28 bg-[#14121B] text-white overflow-hidden">
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-[0.05] pointer-events-none"
+          style={{ backgroundImage: 'radial-gradient(#A78BFA 1px, transparent 1px)', backgroundSize: '28px 28px' }}
+        />
+        <div className="max-w-6xl mx-auto relative">
+          <SectionLabel color="#A78BFA" light>District Pulse</SectionLabel>
+          <div className="grid lg:grid-cols-12 gap-10 lg:gap-12 items-end mb-12">
+            <div className="lg:col-span-7">
+              <h2 className="mt-3 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.05]">
+                The district, <span className="text-[#A78BFA]">in live numbers.</span>
+              </h2>
+            </div>
+            <div className="lg:col-span-4 lg:col-start-9">
+              <p className="text-base text-white/55 leading-relaxed">
+                Every scan, point, and project reported on VIBE rolls up here — straight from the platform.
+              </p>
+            </div>
+          </div>
+
+          {/* KPI tiles */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <PulseKpi icon={QrCode} label="Event check-ins" value={home?.stats?.totalCheckIns} accent="#A78BFA" />
+            <PulseKpi icon={Sparkles} label="Points awarded" value={home?.stats?.totalPoints} accent="#FAB616" />
+            <PulseKpi icon={Calendar} label="Events held" value={home?.stats?.eventsHeld} accent="#2D9DDB" />
+            <PulseKpi
+              icon={Building2}
+              label="Active clubs"
+              value={home?.stats?.clubs.total}
+              sub={home?.stats ? `${home.stats.clubs.college} college · ${home.stats.clubs.community} community` : undefined}
+              accent="#F58220"
+            />
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-4">
+            {/* 6-month check-in trend */}
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-7">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold inline-flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-[#A78BFA]" /> Check-in activity
+                </h3>
+                <span className="text-[10px] uppercase tracking-[0.18em] text-white/40 font-semibold">Last 6 months</span>
+              </div>
+              {home?.activityByMonth ? (
+                <div className="flex items-end justify-between gap-3 h-44">
+                  {home.activityByMonth.map((m) => {
+                    const max = Math.max(1, ...home.activityByMonth!.map((x) => x.count))
+                    return (
+                      <div key={m.label} className="flex-1 h-full flex flex-col items-center justify-end gap-2">
+                        <span className="text-[11px] font-bold text-[#A78BFA] tabular-nums">{m.count || ''}</span>
+                        <div className="w-full flex flex-col justify-end" style={{ height: '78%' }}>
+                          <motion.div
+                            initial={{ scaleY: 0 }}
+                            whileInView={{ scaleY: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                            className="w-full rounded-t-lg bg-gradient-to-t from-[#6D28D9] to-[#A78BFA] origin-bottom"
+                            style={{ height: `${Math.max(2, (m.count / max) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-white/40 font-semibold">{m.label}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="h-44 flex items-center justify-center"><Loader2 className="w-5 h-5 text-white/30 animate-spin" /></div>
+              )}
+            </div>
+
+            {/* Service impact (from monthly club reports) */}
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-7 flex flex-col">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold inline-flex items-center gap-2">
+                  <HeartHandshake className="w-4 h-4 text-[#F58220]" /> Service impact
+                </h3>
+                <span className="text-[10px] uppercase tracking-[0.18em] text-white/40 font-semibold">From monthly club reports</span>
+              </div>
+              {home?.impact && home.impact.projects > 0 ? (
+                <div className="flex-1 grid grid-cols-3 gap-4 items-center">
+                  <ImpactStat value={home.impact.projects} label="Projects reported" accent="#A78BFA" />
+                  <ImpactStat value={home.impact.beneficiaries} label="People served" accent="#F58220" />
+                  <ImpactStat value={home.impact.volunteers} label="Volunteers mobilised" accent="#2D9DDB" />
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-6">
+                  <FolderKanban className="w-8 h-8 text-white/20" />
+                  <p className="text-sm text-white/45 max-w-[32ch] leading-relaxed">
+                    Clubs report completed projects every month — the district's impact numbers appear here.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ============= LIVE LEADERBOARD ============= */}
       <section
         id="leaderboard"
@@ -468,15 +598,35 @@ export default function LandingPage() {
             <div className="bg-white border border-[#1A1815]/8 rounded-3xl p-12 flex justify-center">
               <Loader2 className="w-6 h-6 text-[#6D28D9]/60 animate-spin" />
             </div>
-          ) : home.leaderboard.length === 0 ? (
-            <div className="bg-white border border-[#1A1815]/8 rounded-3xl p-12 text-center">
-              <Trophy className="w-10 h-10 text-[#FAB616] mx-auto mb-3" />
-              <p className="text-[#1A1815]/60 text-sm">
-                No points earned yet — be the first to scan in.
-              </p>
-            </div>
           ) : (
-            <Leaderboard entries={home.leaderboard} />
+            <div className="grid lg:grid-cols-5 gap-6 items-start">
+              {/* Members */}
+              <div className="lg:col-span-3">
+                <div className="flex items-center gap-2 mb-4">
+                  <Users className="w-4 h-4 text-[#FAB616]" />
+                  <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-[#1A1815]/60">Top members</h3>
+                </div>
+                {home.leaderboard.length === 0 ? (
+                  <div className="bg-white border border-[#1A1815]/8 rounded-3xl p-12 text-center">
+                    <Trophy className="w-10 h-10 text-[#FAB616] mx-auto mb-3" />
+                    <p className="text-[#1A1815]/60 text-sm">
+                      No points earned yet — be the first to scan in.
+                    </p>
+                  </div>
+                ) : (
+                  <Leaderboard entries={home.leaderboard} />
+                )}
+              </div>
+
+              {/* Clubs */}
+              <div className="lg:col-span-2">
+                <div className="flex items-center gap-2 mb-4">
+                  <Building2 className="w-4 h-4 text-[#6D28D9]" />
+                  <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-[#1A1815]/60">Top clubs by check-ins</h3>
+                </div>
+                <ClubBoard clubs={home.topClubs ?? []} />
+              </div>
+            </div>
           )}
         </div>
       </section>
@@ -601,34 +751,63 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============= PLATFORM FEATURES ============= */}
+      <section id="features" className="relative px-6 py-20 lg:py-28 bg-[#FAF7F0]">
+        <div className="max-w-6xl mx-auto">
+          <SectionLabel color="#6D28D9">One platform</SectionLabel>
+          <div className="grid lg:grid-cols-12 gap-10 lg:gap-12 items-end mb-12">
+            <div className="lg:col-span-7">
+              <h2 className="mt-3 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#1A1815] leading-[1.05]">
+                Everything the district <span className="text-[#6D28D9]">runs on.</span>
+              </h2>
+            </div>
+            <div className="lg:col-span-4 lg:col-start-9">
+              <p className="text-base text-[#1A1815]/65 leading-relaxed">
+                From the scan at the door to the monthly report — every workflow lives in VIBE.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <FeatureCard icon={QrCode} color="#6D28D9" title="QR attendance"
+              desc="Every member carries a personal QR identity pass. The sergeant team scans; check-ins and points land instantly." />
+            <FeatureCard icon={Trophy} color="#FAB616" title="Live leaderboard"
+              desc="Punctuality and participation ranked in real time, across every district event." />
+            <FeatureCard icon={Building2} color="#1A468F" title="Club management"
+              desc={`${home?.stats?.clubs.total ?? '70+'} clubs with officers, member rosters, and per-club analytics dashboards.`} />
+            <FeatureCard icon={FolderKanban} color="#F58220" title="Monthly project reports"
+              desc="Secretaries file completed projects by the 5th; the DRS reviews district-wide with photo folders." />
+            <FeatureCard icon={BookMarked} color="#2D9DDB" title="DRC bookings"
+              desc="Presidents reserve their club's slots for District Rotaract Conference events in two clicks." />
+            <FeatureCard icon={FileText} color="#6D28D9" title="Minutes of Meeting"
+              desc="The district secretariat drafts, publishes, and exports official MoM documents." />
+          </div>
+        </div>
+      </section>
+
       {/* ============= DISTRICT NUMBERS ============= */}
       <section className="relative px-6 py-16 lg:py-20 bg-white border-y border-[#1A1815]/8">
         <div className="max-w-6xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-4">
           <BigStat
-            value={home?.memberCount ? home.memberCount.toLocaleString() : '—'}
+            value={<CountUp value={home?.stats?.members ?? home?.memberCount} />}
             label="Active members"
             color="#6D28D9"
           />
           <BigStat
-            value={
-              home?.upcomingEvents
-                ? home.upcomingEvents.length.toString()
-                : '—'
-            }
-            label="Live events"
+            value={<CountUp value={home?.stats?.clubs.total} />}
+            label="Active clubs"
             color="#1A468F"
           />
           <BigStat
-            value={
-              home?.leaderboard?.length
-                ? home.leaderboard[0]?.total_points?.toString() || '—'
-                : '—'
-            }
-            label="Top score"
+            value={<CountUp value={home?.stats?.eventsHeld} />}
+            label="Events held"
             color="#FAB616"
-            suffix=" pts"
           />
-          <BigStat value="3233" label="The District" color="#F58220" />
+          <BigStat
+            value={<CountUp value={home?.stats?.totalPoints} />}
+            label="Points awarded"
+            color="#F58220"
+          />
         </div>
       </section>
 
@@ -656,6 +835,26 @@ export default function LandingPage() {
       </footer>
 
       {/* ============= UNIFIED LOGIN DIALOG ============= */}
+      {/* ── Register-as-member dialog ── */}
+      <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
+        <DialogContent className="bg-white text-[#1A1815] border-[#1A1815]/10 sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <span className="w-9 h-9 rounded-full bg-[#6D28D9]/10 flex items-center justify-center shrink-0">
+                <UserPlus className="w-4 h-4 text-[#6D28D9]" />
+              </span>
+              Register as a member
+            </DialogTitle>
+            <DialogDescription className="text-[#1A1815]/55">
+              Join your Rotaract club — your club's officers approve the registration.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="pt-2">
+            <RegisterForm compact />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={loginOpen}
         onOpenChange={(open) => {
@@ -905,7 +1104,7 @@ function Stat({
   label,
   color,
 }: {
-  value: string
+  value: React.ReactNode
   label: string
   color: string
 }) {
@@ -927,7 +1126,7 @@ function BigStat({
   color,
   suffix = '',
 }: {
-  value: string
+  value: React.ReactNode
   label: string
   color: string
   suffix?: string
@@ -1057,5 +1256,175 @@ function BrandMesh() {
         transition={{ duration: 25, repeat: Infinity, ease: 'easeInOut', delay: 4 }}
       />
     </div>
+  )
+}
+
+/* ── Data-driven landing helpers ─────────────────────────────── */
+
+/** Animated count-up that starts when scrolled into view. */
+function CountUp({ value, suffix = '' }: { value: number | null | undefined; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const inView = useInView(ref, { once: true, margin: '-40px' })
+  const [display, setDisplay] = useState(0)
+
+  useEffect(() => {
+    if (!inView || value == null) return
+    const target = value
+    const duration = 1200
+    const start = performance.now()
+    let raf: number
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / duration)
+      const eased = 1 - Math.pow(1 - p, 3)
+      setDisplay(Math.round(target * eased))
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [inView, value])
+
+  // Always render the ref'd span — the in-view observer must attach on
+  // first mount, even while the data is still loading.
+  return (
+    <span ref={ref} className="tabular-nums">
+      {value == null ? '—' : `${display.toLocaleString('en-IN')}${suffix}`}
+    </span>
+  )
+}
+
+/** Dark KPI tile for the District Pulse band. */
+function PulseKpi({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  icon: React.ElementType
+  label: string
+  value: number | null | undefined
+  sub?: string
+  accent: string
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 0.5 }}
+      className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6"
+    >
+      <div
+        className="w-9 h-9 rounded-xl flex items-center justify-center mb-4"
+        style={{ backgroundColor: `${accent}1F` }}
+      >
+        <Icon className="w-4 h-4" style={{ color: accent }} />
+      </div>
+      <div className="text-3xl sm:text-4xl font-extrabold leading-none" style={{ color: accent }}>
+        <CountUp value={value} />
+      </div>
+      <div className="mt-2 text-[10px] uppercase tracking-[0.18em] font-semibold text-white/45">{label}</div>
+      {sub && <div className="mt-1 text-[11px] text-white/35">{sub}</div>}
+    </motion.div>
+  )
+}
+
+/** Large impact number inside the Service Impact card. */
+function ImpactStat({ value, label, accent }: { value: number; label: string; accent: string }) {
+  return (
+    <div className="text-center">
+      <div className="text-3xl sm:text-4xl font-extrabold leading-none" style={{ color: accent }}>
+        <CountUp value={value} />
+      </div>
+      <div className="mt-2 text-[10px] uppercase tracking-[0.16em] font-semibold text-white/45 leading-snug">{label}</div>
+    </div>
+  )
+}
+
+/** Top clubs by check-ins — right column of the leaderboard section. */
+function ClubBoard({ clubs }: { clubs: { name: string; scans: number; members: number }[] }) {
+  if (clubs.length === 0) {
+    return (
+      <div className="bg-white border border-[#1A1815]/8 rounded-3xl p-10 text-center">
+        <Building2 className="w-8 h-8 text-[#6D28D9]/40 mx-auto mb-2" />
+        <p className="text-[#1A1815]/55 text-sm">Club rankings appear as members scan in.</p>
+      </div>
+    )
+  }
+  const max = Math.max(1, ...clubs.map((c) => c.scans))
+  return (
+    <div className="bg-white border border-[#1A1815]/8 rounded-3xl p-4 sm:p-5 space-y-1.5">
+      {clubs.map((c, i) => (
+        <motion.div
+          key={c.name}
+          initial={{ opacity: 0, x: 16 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true, margin: '-50px' }}
+          transition={{ duration: 0.5, delay: i * 0.06 }}
+          className="rounded-2xl px-3.5 py-3 hover:bg-[#F5F3FF] transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0 ${
+                i === 0 ? 'bg-[#FAB616] text-white' : 'bg-[#1A1815]/6 text-[#1A1815]/60'
+              }`}
+            >
+              {i + 1}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-[#1A1815] truncate">{c.name}</p>
+              <p className="text-[10px] text-[#1A1815]/45">{c.members} members</p>
+            </div>
+            <div className="text-right shrink-0">
+              <span className="text-sm font-extrabold text-[#6D28D9] tabular-nums">{c.scans}</span>
+              <span className="block text-[9px] uppercase tracking-[0.14em] font-semibold text-[#1A1815]/40">check-ins</span>
+            </div>
+          </div>
+          <div className="mt-2 h-1 rounded-full bg-[#1A1815]/5 overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              whileInView={{ width: `${(c.scans / max) * 100}%` }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.2 + i * 0.06 }}
+              className="h-full rounded-full"
+              style={{ background: i === 0 ? '#FAB616' : '#6D28D9' }}
+            />
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  )
+}
+
+/** Feature card for the platform grid. */
+function FeatureCard({
+  icon: Icon,
+  color,
+  title,
+  desc,
+}: {
+  icon: React.ElementType
+  color: string
+  title: string
+  desc: string
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-50px' }}
+      transition={{ duration: 0.55 }}
+      whileHover={{ y: -4 }}
+      className="rounded-3xl bg-white border border-[#1A1815]/10 p-6 sm:p-7 hover:shadow-[0_18px_40px_-22px_rgba(26,24,21,0.25)] transition-shadow"
+    >
+      <div
+        className="w-11 h-11 rounded-2xl flex items-center justify-center mb-5"
+        style={{ backgroundColor: `${color}14` }}
+      >
+        <Icon className="w-5 h-5" style={{ color }} />
+      </div>
+      <h3 className="font-bold text-lg text-[#1A1815] leading-tight">{title}</h3>
+      <p className="mt-2 text-sm text-[#1A1815]/60 leading-relaxed">{desc}</p>
+    </motion.div>
   )
 }

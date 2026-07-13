@@ -26,7 +26,7 @@ export async function GET() {
     // 1. The sergeant team — anyone whose designation carries a sergeant title
     const { data: sergeants, error } = await supabase
       .from('profiles')
-      .select('id, full_name, email, club_name, designation, access_role')
+      .select('id, full_name, email, club_id, clubs:club_id(name), designation, access_role')
       .ilike('designation', '%sergeant%')
       .order('designation', { ascending: true })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -51,11 +51,12 @@ export async function GET() {
     const team = (sergeants ?? []).map((p) => {
       const st = stat.get(p.id)
       const isChief = /chief/i.test(p.designation ?? '')
+      const c = Array.isArray(p.clubs) ? p.clubs[0] : p.clubs
       return {
         id: p.id,
         full_name: p.full_name,
         email: p.email,
-        club_name: p.club_name,
+        club_name: (c as { name?: string } | null)?.name ?? null,
         designation: p.designation,
         isChief,
         scans: st?.scans ?? 0,

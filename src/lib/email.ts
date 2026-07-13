@@ -232,3 +232,41 @@ export async function sendBookingConfirmationEmail(opts: {
     }),
   )
 }
+
+/* ────────────────────────────────────────────────────────────────
+ * 3. Registration approved — sent when a club officer approves a
+ *    public registration. No credentials: the member creates their
+ *    own password at first sign-in.
+ * ────────────────────────────────────────────────────────────── */
+
+export async function sendRegistrationApprovedEmail(opts: {
+  memberName: string
+  memberEmail: string
+  clubName: string
+}): Promise<SendResult> {
+  const { memberName, memberEmail, clubName } = opts
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://vibe3233.netlify.app'
+
+  const bodyHtml = `
+    <div style="background:#F5F3FF;border:1px solid #6D28D91F;border-radius:14px;padding:20px 22px;margin:0 0 8px 0;">
+      <p style="margin:0 0 10px 0;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#6D28D9;">Next steps</p>
+      <ol style="margin:0;padding-left:18px;font-size:14px;line-height:1.9;color:#1A1815CC;">
+        <li>Sign in with this email — you'll create your password on first login.</li>
+        <li>Open your member portal to find your personal <b>QR identity pass</b>.</li>
+        <li>Show the QR at district events to log attendance and earn VIBE points.</li>
+      </ol>
+    </div>`
+
+  return send(
+    memberEmail,
+    `Welcome to ${clubName} — your VIBE registration is approved 🎉`,
+    shell({
+      preheader: `Your registration for ${clubName} was approved. Sign in to get your QR pass.`,
+      title: `You're in, ${memberName}!`,
+      intro: `Your membership registration for <b>${escapeHtml(clubName)}</b> has been approved by your club. Welcome to Rotaract District 3233.`,
+      bodyHtml,
+      cta: { label: 'Sign in to VIBE', href: APP_URL },
+      footerNote: 'Use the email this message was sent to when signing in.',
+    }),
+  )
+}

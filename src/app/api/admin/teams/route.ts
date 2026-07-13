@@ -27,18 +27,19 @@ export async function GET() {
     // District officials = designation prefixed "DO -"
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, email, phone_number, club_name, designation')
+      .select('id, full_name, email, phone_number, club_id, clubs:club_id(name), designation')
       .ilike('designation', 'DO -%')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     const members = (data ?? []).map((p) => {
       const team = teamForDesignation(p.designation)
+      const c = Array.isArray(p.clubs) ? p.clubs[0] : p.clubs
       return {
         id: p.id,
         full_name: p.full_name,
         email: p.email,
         phone_number: p.phone_number,
-        club_name: p.club_name,
+        club_name: (c as { name?: string } | null)?.name ?? null,
         designation: (p.designation ?? '').replace(/^DO - /, ''),
         teamKey: team.key,
         teamLabel: team.label,

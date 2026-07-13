@@ -10,6 +10,7 @@ import {
   SESSION_COOKIE,
   type AccessRole,
 } from '@/lib/session'
+import { rateLimited, clientIp } from '@/lib/rate-limit'
 
 const scryptAsync = promisify(scrypt)
 
@@ -62,13 +63,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Enter your email or username.' }, { status: 400 })
     }
 
+    // Brute-force speed bump — throttle credentialed attempts per IP+identifier.
+    if (action === 'login' || action === 'setup') {
+      const key = `auth:${clientIp(request)}:${identifier.toLowerCase()}`
+      if (rateLimited(key, 10, 10 * 60_000)) {
+        return NextResponse.json(
+          { error: 'Too many attempts. Please wait a few minutes and try again.' },
+          { status: 429 },
+        )
+      }
+    }
+
     // ── Super admin (env-based, not in DB) ─────────────────────────
     if (identifier.toLowerCase() === ADMIN_USERNAME.toLowerCase()) {
       if (action === 'check') {
+        // No role in unauthenticated responses — don't advertise admin accounts.
         return NextResponse.json({
           exists: true,
           hasPassword: true, // env password always "set"
-          role: 'super_admin' as AccessRole,
           name: 'Super Admin',
         })
       }
@@ -100,6 +112,30 @@ export async function POST(request: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     if (!profile) {
+      // A registration may be in the approval queue — say so instead of "no account".
+      try {
+        const { data: reg } = await supabase
+          .from('member_registrations')
+          .select('status')
+          .ilike('email', email)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (reg?.status === 'pending') {
+          return NextResponse.json(
+            { error: "Your registration is awaiting your club officers' approval. You'll get an email once it's approved." },
+            { status: 403 },
+          )
+        }
+        if (reg?.status === 'rejected') {
+          return NextResponse.json(
+            { error: 'Your registration was declined. Please contact your club president.' },
+            { status: 403 },
+          )
+        }
+      } catch {
+        // registrations table may not exist yet — fall through
+      }
       return NextResponse.json(
         { error: 'No account found with this email. Contact your district admin.' },
         { status: 404 },
@@ -109,10 +145,10 @@ export async function POST(request: Request) {
     const role = (profile.access_role ?? 'member') as AccessRole
 
     if (action === 'check') {
+      // No role in unauthenticated responses — don't let probes map out admins.
       return NextResponse.json({
         exists: true,
         hasPassword: Boolean(profile.password_hash),
-        role,
         name: profile.full_name,
       })
     }

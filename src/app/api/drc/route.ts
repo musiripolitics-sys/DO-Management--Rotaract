@@ -19,11 +19,13 @@ async function getPresidentProfile() {
   const supabase = getAdminClient()
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, full_name, email, club_name, phone_number, designation')
+    .select('id, full_name, email, phone_number, designation, clubs:club_id(name)')
     .ilike('email', session.email)
     .maybeSingle()
 
-  return profile ?? null
+  if (!profile) return null
+  const c = Array.isArray(profile.clubs) ? profile.clubs[0] : profile.clubs
+  return { ...profile, club_name: (c as { name?: string } | null)?.name ?? null }
 }
 
 export async function GET() {

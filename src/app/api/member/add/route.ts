@@ -5,6 +5,11 @@ import { getSession } from '@/lib/session'
 
 const DEFAULT_PASSWORD = 'Rotaract@3233'
 
+function one<T>(v: T | T[] | null | undefined): T | null {
+  if (!v) return null
+  return Array.isArray(v) ? (v[0] ?? null) : v
+}
+
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -29,7 +34,7 @@ export async function POST(request: Request) {
     // Caller's own club (new members inherit it)
     const { data: callerProfile, error: callerError } = await supabase
       .from('profiles')
-      .select('id, designation, club_name')
+      .select('id, designation, club_id, clubs:club_id(name)')
       .ilike('email', session.email ?? '')
       .maybeSingle()
 
@@ -90,7 +95,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: authError.message }, { status: 500 })
     }
 
-    // 5. Update the created profile with all fields
+    // 5. Update the created profile with all fields (inherit caller's club)
+    const callerClub = one<{ name: string | null }>(callerProfile.clubs)
     const { error: updateError } = await supabase
       .from('profiles')
       .update({
@@ -98,7 +104,7 @@ export async function POST(request: Request) {
         phone_number: phone.trim(),
         ri_id: riId.trim(),
         referred_by: referrerProfile.id,
-        club_name: callerProfile.club_name ?? null,
+        club_id: callerProfile.club_id ?? null,
       })
       .eq('email', memberEmail.trim().toLowerCase())
 
@@ -112,7 +118,7 @@ export async function POST(request: Request) {
       memberEmail: memberEmail.trim().toLowerCase(),
       tempPassword: DEFAULT_PASSWORD,
       referredByName: referrerProfile.full_name ?? 'A district official',
-      clubName: callerProfile.club_name ?? null,
+      clubName: callerClub?.name ?? null,
     })
 
     return NextResponse.json({

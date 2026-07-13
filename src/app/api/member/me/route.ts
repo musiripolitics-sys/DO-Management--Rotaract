@@ -22,13 +22,16 @@ export async function GET() {
 
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('*, clubs:club_id(name)')
       .ilike('email', session.email)
       .maybeSingle()
 
     if (error || !profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
+    // Canonical club name from the clubs table (falls back to legacy column)
+    const clubJoin = Array.isArray(profile.clubs) ? profile.clubs[0] : profile.clubs
+    profile.club_name = (clubJoin as { name?: string } | null)?.name ?? profile.club_name ?? null
 
     const { data: attendance } = await supabase
       .from('attendance')
