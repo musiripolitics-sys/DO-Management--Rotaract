@@ -203,6 +203,30 @@ export async function GET() {
       // table may not exist yet
     }
 
+    /* ── Latest published Minutes of Meeting — graceful if absent ── */
+    let latestMom: { id: string; meeting_number: string | null; published_at: string; event_name: string | null } | null =
+      null
+    try {
+      const { data: mom, error } = await supabase
+        .from('mom_meetings')
+        .select('id, meeting_number, published_at, event:events(name)')
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (!error && mom?.published_at) {
+        const ev = one(mom.event)
+        latestMom = {
+          id: mom.id,
+          meeting_number: mom.meeting_number ?? null,
+          published_at: mom.published_at,
+          event_name: (ev as { name?: string } | null)?.name ?? null,
+        }
+      }
+    } catch {
+      // table may not exist yet
+    }
+
     return NextResponse.json({
       upcomingEvents: upcomingRes.data ?? [],
       leaderboard,
@@ -219,6 +243,7 @@ export async function GET() {
       topClubs,
       rotary,
       impact,
+      latestMom,
     })
   } catch (error: unknown) {
     return NextResponse.json(

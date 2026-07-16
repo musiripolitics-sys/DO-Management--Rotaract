@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getSession, hasAccess, MOM_TIER } from '@/lib/session'
+import { sendMomPublishedEmail } from '@/lib/email'
 import {
   computeCompletion,
   computeStats,
@@ -124,6 +125,13 @@ export async function PATCH(request: Request, { params }: Params) {
     const body = await request.json()
     const supabase = getAdminClient()
 
+    /* Current status — so we email presidents only on the draft→published edge. */
+    const { data: before } = await supabase
+      .from('mom_meetings')
+      .select('status, event:events(name, event_date)')
+      .eq('id', id)
+      .maybeSingle()
+
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if ('meeting_number' in body) updates.meeting_number = body.meeting_number?.trim() || null
     if ('venue' in body) updates.venue = body.venue?.trim() || null
@@ -143,7 +151,38 @@ export async function PATCH(request: Request, { params }: Params) {
       .select()
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ success: true, mom: data })
+
+    /* Notify all club presidents when the MoM goes live (non-blocking failure). */
+    let emailed = 0
+    if (body.status === 'published' && before?.status !== 'published') {
+      const { data: presidents } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('access_role', 'president')
+        .not('email', 'is', null)
+      const emails = Array.from(new Set((presidents ?? []).map((p) => p.email as string).filter(Boolean)))
+      if (emails.length > 0) {
+        const ev = Array.isArray(before?.event) ? before?.event[0] : before?.event
+        const result = await sendMomPublishedEmail({
+          momId: id,
+          eventName: (ev as { name?: string } | null)?.name ?? 'DRC Meeting',
+          eventDate: (ev as { event_date?: string } | null)?.event_date
+            ? new Date((ev as { event_date: string }).event_date).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })
+            : null,
+          meetingNumber: (data.meeting_number as string | null) ?? null,
+          venue: (data.venue as string | null) ?? null,
+          presidentEmails: emails,
+        })
+        if (result.success) emailed = emails.length
+        else console.error('[mom] publish email failed:', result.error)
+      }
+    }
+
+    return NextResponse.json({ success: true, mom: data, emailed })
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal Server Error' },

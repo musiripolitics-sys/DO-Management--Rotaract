@@ -108,6 +108,12 @@ type HomeData = {
   topClubs?: TopClub[]
   rotary?: RotaryBlock | null
   impact?: { projects: number; beneficiaries: number; volunteers: number } | null
+  latestMom?: {
+    id: string
+    meeting_number: string | null
+    published_at: string
+    event_name: string | null
+  } | null
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -345,11 +351,11 @@ export default function LandingPage() {
   }
 
   if (!isMounted) {
-    return <div className="min-h-screen bg-[#14121B]" />
+    return <div suppressHydrationWarning className="min-h-screen bg-[#14121B]" />
   }
 
   return (
-    <div className="min-h-screen bg-white text-[#1A1815] selection:bg-[#6D28D9]/15 selection:text-[#6D28D9] overflow-x-hidden">
+    <div suppressHydrationWarning className="min-h-screen bg-white text-[#1A1815] selection:bg-[#6D28D9]/15 selection:text-[#6D28D9] overflow-x-hidden">
       {/* ============= SCROLL PROGRESS ============= */}
       <motion.div
         aria-hidden
@@ -367,14 +373,9 @@ export default function LandingPage() {
       >
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <a href="#top" className="flex items-center gap-3 group" aria-label="VIBE home">
-            <Image
-              src="/vibe-logo.jpg"
-              alt="Rotaract District 3233 — VIBE"
-              width={2480}
-              height={610}
-              priority
-              className="h-9 lg:h-10 w-auto rounded-md transition-transform duration-500 ease-out group-hover:scale-105"
-            />
+            <div className="flex items-center justify-center bg-[#6D28D9] text-white font-black px-4 py-2 rounded-md h-9 lg:h-10 text-xl tracking-wider transition-transform duration-500 ease-out group-hover:scale-105">
+              VIBE
+            </div>
           </a>
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium">
             {[
@@ -1064,6 +1065,47 @@ export default function LandingPage() {
                 )}
               </div>
             </div>
+          )}
+
+          {/* Latest published Minutes of Meeting */}
+          {home?.latestMom && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.55 }}
+              className="mt-10 relative flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border border-[#1A468F]/20 bg-white p-5 sm:p-6 shadow-[0_18px_44px_-30px_rgba(26,70,143,0.4)]"
+            >
+              <Link
+                href={`/mom/${home.latestMom.id}`}
+                className="absolute inset-0"
+                aria-label="Read and download the latest minutes of meeting"
+              />
+              <span className="shrink-0 inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#1A468F]/10 text-[#1A468F]">
+                <FileText className="w-5 h-5" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#1A468F]">
+                  Minutes of Meeting — published
+                </p>
+                <p className="mt-1 font-extrabold text-[#1A1815] truncate">
+                  {home.latestMom.event_name ?? 'District Council Meeting'}
+                  {home.latestMom.meeting_number ? ` · ${home.latestMom.meeting_number}` : ''}
+                </p>
+                <p className="text-xs text-[#1A1815]/50 mt-0.5">
+                  Published{' '}
+                  {new Date(home.latestMom.published_at).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}{' '}
+                  · open to read or download as PDF
+                </p>
+              </div>
+              <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-[#1A468F] text-white text-xs font-bold px-4 py-2">
+                Read & download <ArrowUpRight className="w-3.5 h-3.5" />
+              </span>
+            </motion.div>
           )}
 
           <NextLink href="#how" label="How to earn your spot on the board" />

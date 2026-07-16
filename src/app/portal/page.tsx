@@ -396,7 +396,7 @@ export default function PresidentPortal() {
                   <p className="text-[11px] uppercase tracking-[0.18em] text-white/40 font-semibold">{periodLabel(month)} projects</p>
                   <p className="text-3xl font-extrabold mt-1">{pulse.projectCount}</p>
                 </div>
-                <Link href="/secretary" className="group rounded-2xl border border-white/8 bg-white/[0.03] hover:border-[#6D28D9]/40 hover:bg-[#6D28D9]/5 p-5 transition-all">
+                <Link href="/secretary/projects" className="group rounded-2xl border border-white/8 bg-white/[0.03] hover:border-[#6D28D9]/40 hover:bg-[#6D28D9]/5 p-5 transition-all">
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-white/40 font-semibold">Monthly report</p>
                     <ChevronRight className="w-4 h-4 text-white/25 group-hover:text-[#A78BFA] transition-colors" />

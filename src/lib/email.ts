@@ -41,11 +41,12 @@ async function send(
   to: string,
   subject: string,
   html: string,
+  bcc?: string[],
 ): Promise<SendResult> {
   const smtp = getSmtp()
   if (smtp) {
     try {
-      const info = await smtp.sendMail({ from: FROM_ADDRESS, to, subject, html })
+      const info = await smtp.sendMail({ from: FROM_ADDRESS, to, subject, html, ...(bcc?.length ? { bcc } : {}) })
       return { success: true, id: info.messageId }
     } catch (err) {
       console.error('[email] SMTP error:', err)
@@ -63,6 +64,7 @@ async function send(
     const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: [to],
+      ...(bcc?.length ? { bcc } : {}),
       subject,
       html,
     })
@@ -261,6 +263,60 @@ export async function sendBookingConfirmationEmail(opts: {
       bodyHtml,
       cta: { label: 'Manage in President Portal', href: `${APP_URL}/portal` },
     }),
+  )
+}
+
+/* ────────────────────────────────────────────────────────────────
+ * 2a2. MoM published — sent to every club president (BCC) when a
+ *      DRC's Minutes of Meeting go from draft to published.
+ * ────────────────────────────────────────────────────────────── */
+
+export async function sendMomPublishedEmail(opts: {
+  momId: string
+  eventName: string
+  eventDate: string | null
+  meetingNumber: string | null
+  venue: string | null
+  presidentEmails: string[]
+}): Promise<SendResult> {
+  const { momId, eventName, eventDate, meetingNumber, venue, presidentEmails } = opts
+  if (presidentEmails.length === 0) return { success: false, error: 'No president emails' }
+
+  const momUrl = `${APP_URL}/mom/${momId}`
+
+  const bodyHtml = `
+    <div style="background:#F5F3FF;border:1px solid #6D28D922;border-radius:14px;padding:20px;margin:0 0 20px 0;">
+      <p style="margin:0 0 8px 0;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#6D28D9;">Minutes of Meeting</p>
+      <p style="margin:0 0 16px 0;font-size:17px;font-weight:700;color:#1A1815;">${escapeHtml(eventName)}</p>
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+        ${meetingNumber ? `
+        <tr><td style="font-size:12px;color:#1A18157A;padding:4px 0;width:110px;">📋 Meeting</td>
+            <td style="font-size:13px;color:#1A1815;">${escapeHtml(meetingNumber)}</td></tr>` : ''}
+        ${eventDate ? `
+        <tr><td style="font-size:12px;color:#1A18157A;padding:4px 0;">📅 Held on</td>
+            <td style="font-size:13px;color:#1A1815;">${escapeHtml(eventDate)}</td></tr>` : ''}
+        ${venue ? `
+        <tr><td style="font-size:12px;color:#1A18157A;padding:4px 0;">📍 Venue</td>
+            <td style="font-size:13px;color:#1A1815;">${escapeHtml(venue)}</td></tr>` : ''}
+      </table>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:1.55;color:#1A181599;">
+      Open the minutes to review district updates, completed and upcoming projects, and the
+      action items for your club. You can download a PDF copy from the same page.
+    </p>`
+
+  return send(
+    FROM_ADDRESS, // self-addressed; presidents receive via BCC
+    `Minutes published — ${eventName}`,
+    shell({
+      preheader: `The minutes of ${eventName} are now available.`,
+      title: 'Minutes of Meeting published',
+      intro: `Dear President, the official minutes of <b>${escapeHtml(eventName)}</b> have been published for all clubs of Rotaract District 3233.`,
+      bodyHtml,
+      cta: { label: 'Read & download the minutes', href: momUrl },
+      footerNote: 'Sent to all club presidents of Rotaract District 3233.',
+    }),
+    presidentEmails,
   )
 }
 
