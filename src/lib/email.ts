@@ -14,7 +14,7 @@ import nodemailer from 'nodemailer'
  * ────────────────────────────────────────────────────────────── */
 
 const FROM_ADDRESS = process.env.EMAIL_FROM || 'VIBE District 3233 <onboarding@resend.dev>'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://vibe-district3233.netlify.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.3233vibe.com'
 
 function getSmtp() {
   const user = process.env.SMTP_USER
@@ -421,7 +421,6 @@ export async function sendRegistrationApprovedEmail(opts: {
   clubName: string
 }): Promise<SendResult> {
   const { memberName, memberEmail, clubName } = opts
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://vibe3233.netlify.app'
 
   const bodyHtml = `
     <div style="background:#F5F3FF;border:1px solid #6D28D91F;border-radius:14px;padding:20px 22px;margin:0 0 8px 0;">

@@ -5,7 +5,10 @@ import { sendEventReminderEmail } from '@/lib/email'
 /* ────────────────────────────────────────────────────────────────
  * 24-hour event reminders.
  *
- * Called on a schedule (hourly) by netlify/functions/event-reminders.mjs.
+ * Called hourly by the Vercel cron declared in vercel.json. Vercel signs
+ * cron requests with `Authorization: Bearer $CRON_SECRET` automatically,
+ * which is what the auth check below expects.
+ *
  * Finds bookings for events that start within the next 24 hours and
  * emails the officer who booked, once per booking:
  *

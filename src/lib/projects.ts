@@ -82,7 +82,7 @@ export const AREAS_OF_FOCUS = [
 
 /* ── Month-key helpers (a "month key" is always 'YYYY-MM-01') ────
  * All "now"-derived math is anchored to IST (UTC+5:30) so the
- * Netlify server (UTC) and district members (IST) always agree on
+ * server (UTC) and district members (IST) always agree on
  * the current reporting month and deadline — even in the hours
  * around a month boundary. */
 
