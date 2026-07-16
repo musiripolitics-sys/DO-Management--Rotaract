@@ -234,6 +234,59 @@ export async function sendBookingConfirmationEmail(opts: {
 }
 
 /* ────────────────────────────────────────────────────────────────
+ * 2b. Event reminder — sent ~24 hours before an event starts to
+ *     every club officer with a booking (see /api/cron/event-reminders).
+ * ────────────────────────────────────────────────────────────── */
+
+export async function sendEventReminderEmail(opts: {
+  recipientName: string
+  recipientEmail: string
+  eventId: string
+  eventName: string
+  eventDate: string
+  eventLocation: string | null
+  clubName: string
+  attendeeCount: number
+}): Promise<SendResult> {
+  const { recipientName, recipientEmail, eventId, eventName, eventDate, eventLocation, clubName, attendeeCount } =
+    opts
+
+  const bodyHtml = `
+    <div style="background:#FFFBEB;border:1px solid #F2A41033;border-radius:14px;padding:20px;margin:0 0 20px 0;">
+      <p style="margin:0 0 8px 0;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#9B6A00;">⏰ Starts in about 24 hours</p>
+      <p style="margin:0 0 16px 0;font-size:17px;font-weight:700;color:#1A1815;">${escapeHtml(eventName)}</p>
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+        <tr><td style="font-size:12px;color:#1A18157A;padding:4px 0;width:110px;">📅 When</td>
+            <td style="font-size:13px;color:#1A1815;">${escapeHtml(eventDate)}</td></tr>
+        ${eventLocation ? `
+        <tr><td style="font-size:12px;color:#1A18157A;padding:4px 0;">📍 Where</td>
+            <td style="font-size:13px;color:#1A1815;">${escapeHtml(eventLocation)}</td></tr>` : ''}
+        <tr><td style="font-size:12px;color:#1A18157A;padding:4px 0;">🏛️ Club</td>
+            <td style="font-size:13px;color:#1A1815;font-weight:600;">${escapeHtml(clubName)}</td></tr>
+        <tr><td style="font-size:12px;color:#1A18157A;padding:4px 0;">👥 Delegation</td>
+            <td style="font-size:13px;color:#1A1815;font-weight:600;">${attendeeCount} attendee${attendeeCount === 1 ? '' : 's'}</td></tr>
+      </table>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:1.55;color:#1A181599;background:#F5F3FF;border-left:3px solid #6D28D9;padding:10px 14px;border-radius:6px;">
+      💡 Remind your delegation to carry their <strong>QR passes</strong> — scan-in on arrival earns
+      points, and arriving early earns the punctuality bonus.
+    </p>`
+
+  return send(
+    recipientEmail,
+    `Reminder: ${eventName} starts tomorrow`,
+    shell({
+      preheader: `${eventName} starts in about 24 hours — get your delegation ready.`,
+      title: 'Your event is tomorrow!',
+      intro: `Hi ${escapeHtml(recipientName.split(' ')[0])}, a quick heads-up — <b>${escapeHtml(eventName)}</b> starts in about 24 hours and your club has a confirmed booking.`,
+      bodyHtml,
+      cta: { label: 'View the event page', href: `${APP_URL}/events/${eventId}` },
+      footerNote: 'You are receiving this because you booked this event for your club.',
+    }),
+  )
+}
+
+/* ────────────────────────────────────────────────────────────────
  * 3. Registration approved — sent when a club officer approves a
  *    public registration. No credentials: the member creates their
  *    own password at first sign-in.
