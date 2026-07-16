@@ -24,11 +24,16 @@ export async function GET() {
 
     const supabase = getAdminClient()
 
-    // District officials = designation prefixed "DO -"
+    // District officers = everyone on the district board (any role except
+    // club president/secretary/plain member). Classified into functional
+    // teams by designation via teamForDesignation().
+    const DISTRICT_ROLES = [
+      'drr', 'adrr', 'drs', 'adrs', 'chief_sergeant', 'sergeant', 'district_official',
+    ]
     const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, email, phone_number, club_id, clubs:club_id(name), designation')
-      .ilike('designation', 'DO -%')
+      .in('access_role', DISTRICT_ROLES)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     const members = (data ?? []).map((p) => {

@@ -11,6 +11,7 @@ import {
   type AccessRole,
 } from '@/lib/session'
 import { rateLimited, clientIp } from '@/lib/rate-limit'
+import { computeCompletion } from '@/lib/profile-completion'
 
 const scryptAsync = promisify(scrypt)
 
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
     const supabase = getAdminClient()
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name, access_role, password_hash')
+      .select('id, email, full_name, access_role, password_hash, phone_number, date_of_birth, gender, club_id')
       .ilike('email', email)
       .maybeSingle()
 
@@ -143,6 +144,7 @@ export async function POST(request: Request) {
     }
 
     const role = (profile.access_role ?? 'member') as AccessRole
+    const needsProfile = !computeCompletion(profile).isComplete
 
     if (action === 'check') {
       // No role in unauthenticated responses — don't let probes map out admins.
@@ -175,6 +177,7 @@ export async function POST(request: Request) {
         role,
         name: profile.full_name,
         dashboard: dashboardForRole(role),
+        needsProfile,
       })
       res.cookies.set(SESSION_COOKIE, signSession(profile.email ?? email), COOKIE_OPTS)
       return res
@@ -196,6 +199,7 @@ export async function POST(request: Request) {
         role,
         name: profile.full_name,
         dashboard: dashboardForRole(role),
+        needsProfile,
       })
       res.cookies.set(SESSION_COOKIE, signSession(profile.email ?? email), COOKIE_OPTS)
       return res

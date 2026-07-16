@@ -16,6 +16,7 @@ import {
   FolderKanban,
   UserCog,
   UserPlus,
+  Globe,
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -106,6 +107,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // Public-registration approvals — admins + the sergeant team (attendance desk).
     { name: 'Requests', href: '/admin/registrations', icon: UserPlus, roles: ['admin', 'chief', 'sergeant'] },
     { name: 'Clubs', href: '/admin/clubs', icon: Building2, roles: ['admin'] },
+    { name: 'Rotary', href: '/admin/rotary', icon: Globe, roles: ['admin', 'drs', 'adrs'] },
     { name: 'MoM', href: '/admin/mom', icon: FileText, roles: ['admin', 'drs', 'adrs'] },
     // Projects = the DRS data dashboard. ADRS deliberately excluded.
     { name: 'Projects', href: '/admin/projects', icon: FolderKanban, roles: ['admin', 'drs'] },

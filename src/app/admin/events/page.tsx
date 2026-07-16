@@ -20,12 +20,18 @@ import {
 import {
   CalendarPlus,
   Calendar,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  FileText,
   MapPin,
   Clock,
   Loader2,
   Pencil,
+  Plus,
   Trash2,
   TriangleAlert,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -60,6 +66,33 @@ const EMPTY_FORM: EventForm = {
 }
 
 const CATEGORIES = ['District Event', 'Ceremonies', 'DRC']
+
+/* Landing-page content is managed for events only — DRCs run through
+ * the club booking flow and are excluded from this editor. */
+const isDrc = (category: string | null) => (category ?? '').trim().toLowerCase() === 'drc'
+
+type AgendaItem = { time_label: string; title: string; description: string }
+type SpeakerItem = { name: string; designation: string; photo_url: string }
+
+type ContentForm = {
+  description: string
+  logo_url: string
+  agenda: AgendaItem[]
+  speakers: SpeakerItem[]
+}
+
+const EMPTY_CONTENT: ContentForm = { description: '', logo_url: '', agenda: [], speakers: [] }
+
+function moveItem<T>(list: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= list.length) return list
+  const next = [...list]
+  const [item] = next.splice(from, 1)
+  next.splice(to, 0, item)
+  return next
+}
+
+const fieldCls =
+  'bg-white border-[#1A1815]/15 text-[#1A1815] placeholder:text-[#1A1815]/35 focus-visible:ring-[#6D28D9]'
 
 const CATEGORY_CHIP: Record<string, string> = {
   DRC: 'bg-[#6D28D9]/10 text-[#6D28D9]',
@@ -216,6 +249,13 @@ export default function EventsManagement() {
   const [deleteEvent, setDeleteEvent] = useState<Event | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // Landing-page content dialog (events only, never DRC)
+  const [contentEvent, setContentEvent] = useState<Event | null>(null)
+  const [contentForm, setContentForm] = useState<ContentForm>(EMPTY_CONTENT)
+  const [contentLoading, setContentLoading] = useState(false)
+  const [contentSaving, setContentSaving] = useState(false)
+  const [contentTablesReady, setContentTablesReady] = useState(true)
+
   /* ── Load events ── */
   const fetchEvents = async () => {
     setIsLoading(true)
@@ -348,6 +388,60 @@ export default function EventsManagement() {
     }
   }
 
+  /* ── Landing-page content ── */
+  const openContent = async (event: Event) => {
+    setContentEvent(event)
+    setContentForm(EMPTY_CONTENT)
+    setContentLoading(true)
+    try {
+      const res = await fetch(`/api/events/${event.id}/content`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to load page content')
+      setContentTablesReady(data.tablesReady !== false)
+      setContentForm({
+        description: data.description ?? '',
+        logo_url: data.logo_url ?? '',
+        agenda: (data.agenda ?? []).map((a: Partial<AgendaItem>) => ({
+          time_label: a.time_label ?? '',
+          title: a.title ?? '',
+          description: a.description ?? '',
+        })),
+        speakers: (data.speakers ?? []).map((s: Partial<SpeakerItem>) => ({
+          name: s.name ?? '',
+          designation: s.designation ?? '',
+          photo_url: s.photo_url ?? '',
+        })),
+      })
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load page content')
+      setContentEvent(null)
+    } finally {
+      setContentLoading(false)
+    }
+  }
+
+  const handleContentSave = async () => {
+    if (!contentEvent) return
+    setContentSaving(true)
+    try {
+      const res = await fetch(`/api/events/${contentEvent.id}/content`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contentForm),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save page content')
+      toast.success(`Landing page updated — ${data.agenda} agenda item${data.agenda === 1 ? '' : 's'}, ${data.speakers} speaker${data.speakers === 1 ? '' : 's'}.`)
+      setContentEvent(null)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save page content')
+    } finally {
+      setContentSaving(false)
+    }
+  }
+
+  const setContent = (patch: Partial<ContentForm>) => setContentForm((f) => ({ ...f, ...patch }))
+
   /* ── Render ── */
   return (
     <div className="p-6 lg:p-10 space-y-8">
@@ -433,6 +527,16 @@ export default function EventsManagement() {
                     <Pencil className="w-3.5 h-3.5" />
                     Edit
                   </button>
+                  {!isDrc(event.category) && (
+                    <button
+                      onClick={() => openContent(event)}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-[#1A1815]/60 hover:text-[#1A468F] hover:bg-[#1A468F]/6 border border-[#1A1815]/10 hover:border-[#1A468F]/30 rounded-xl py-2 transition-all"
+                      title="Agenda, speakers, description & logo on the public event page"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      Page
+                    </button>
+                  )}
                   <button
                     onClick={() => setDeleteEvent(event)}
                     className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-[#1A1815]/60 hover:text-red-600 hover:bg-red-50 border border-[#1A1815]/10 hover:border-red-200 rounded-xl py-2 transition-all"
@@ -533,6 +637,219 @@ export default function EventsManagement() {
               Delete
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Landing-page content dialog (events only, never DRC) ── */}
+      <Dialog open={contentEvent !== null} onOpenChange={(open) => { if (!open) setContentEvent(null) }}>
+        <DialogContent className="bg-white border-[#1A1815]/10 text-[#1A1815] sm:max-w-[680px] max-h-[88vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>Landing page — {contentEvent?.name}</span>
+              {contentEvent && (
+                <a
+                  href={`/events/${contentEvent.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-[#6D28D9] hover:underline"
+                >
+                  View live <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {contentLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-6 h-6 text-[#6D28D9]/60 animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-6 pt-1">
+              {!contentTablesReady && (
+                <p className="text-xs text-[#9B6A00] bg-[#F2A410]/12 border border-[#F2A410]/30 rounded-xl px-4 py-3">
+                  The agenda/speaker tables don&apos;t exist yet — run{' '}
+                  <code className="font-mono">supabase/schema_event_page.sql</code> in the Supabase SQL editor,
+                  then reopen this dialog.
+                </p>
+              )}
+
+              {/* Hero copy */}
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-[0.16em] text-[#1A1815]/60">Description</Label>
+                <textarea
+                  value={contentForm.description}
+                  onChange={(e) => setContent({ description: e.target.value })}
+                  rows={3}
+                  placeholder="Shown in the hero — what this event is and why members should be there."
+                  className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-2 ${fieldCls}`}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-[0.16em] text-[#1A1815]/60">Logo URL</Label>
+                <Input
+                  value={contentForm.logo_url}
+                  onChange={(e) => setContent({ logo_url: e.target.value })}
+                  placeholder="https://… (square image; leave empty for the monogram)"
+                  className={fieldCls}
+                />
+              </div>
+
+              {/* Agenda editor */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs uppercase tracking-[0.16em] text-[#1A1815]/60">Agenda</Label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setContent({ agenda: [...contentForm.agenda, { time_label: '', title: '', description: '' }] })
+                    }
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#6D28D9] hover:underline"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add item
+                  </button>
+                </div>
+                {contentForm.agenda.length === 0 && (
+                  <p className="text-xs text-[#1A1815]/45 border border-dashed border-[#1A1815]/15 rounded-xl px-4 py-3">
+                    No agenda yet — the public page shows an &ldquo;agenda being finalised&rdquo; note.
+                  </p>
+                )}
+                {contentForm.agenda.map((item, i) => (
+                  <div key={i} className="rounded-xl border border-[#1A1815]/10 p-3 space-y-2 bg-[#FAF7F0]/60">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input
+                        value={item.time_label}
+                        onChange={(e) => {
+                          const agenda = [...contentForm.agenda]
+                          agenda[i] = { ...item, time_label: e.target.value }
+                          setContent({ agenda })
+                        }}
+                        placeholder="09:00 AM"
+                        className={`sm:w-28 shrink-0 font-mono text-xs ${fieldCls}`}
+                      />
+                      <Input
+                        value={item.title}
+                        onChange={(e) => {
+                          const agenda = [...contentForm.agenda]
+                          agenda[i] = { ...item, title: e.target.value }
+                          setContent({ agenda })
+                        }}
+                        placeholder="Session title (required)"
+                        className={fieldCls}
+                      />
+                      <div className="flex gap-1 shrink-0 self-end sm:self-auto">
+                        <button type="button" onClick={() => setContent({ agenda: moveItem(contentForm.agenda, i, i - 1) })}
+                          className="p-2 rounded-lg border border-[#1A1815]/10 text-[#1A1815]/50 hover:text-[#6D28D9] disabled:opacity-30"
+                          disabled={i === 0} aria-label="Move up">
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => setContent({ agenda: moveItem(contentForm.agenda, i, i + 1) })}
+                          className="p-2 rounded-lg border border-[#1A1815]/10 text-[#1A1815]/50 hover:text-[#6D28D9] disabled:opacity-30"
+                          disabled={i === contentForm.agenda.length - 1} aria-label="Move down">
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => setContent({ agenda: contentForm.agenda.filter((_, j) => j !== i) })}
+                          className="p-2 rounded-lg border border-[#1A1815]/10 text-[#1A1815]/50 hover:text-red-600" aria-label="Remove">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <Input
+                      value={item.description}
+                      onChange={(e) => {
+                        const agenda = [...contentForm.agenda]
+                        agenda[i] = { ...item, description: e.target.value }
+                        setContent({ agenda })
+                      }}
+                      placeholder="One-line detail (optional)"
+                      className={`text-xs ${fieldCls}`}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Speakers editor */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs uppercase tracking-[0.16em] text-[#1A1815]/60">Speakers</Label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setContent({ speakers: [...contentForm.speakers, { name: '', designation: '', photo_url: '' }] })
+                    }
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#6D28D9] hover:underline"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add speaker
+                  </button>
+                </div>
+                {contentForm.speakers.length === 0 && (
+                  <p className="text-xs text-[#1A1815]/45 border border-dashed border-[#1A1815]/15 rounded-xl px-4 py-3">
+                    No speakers yet — the public page shows a &ldquo;lineup drops soon&rdquo; note.
+                  </p>
+                )}
+                {contentForm.speakers.map((sp, i) => (
+                  <div key={i} className="rounded-xl border border-[#1A1815]/10 p-3 space-y-2 bg-[#FAF7F0]/60">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input
+                        value={sp.name}
+                        onChange={(e) => {
+                          const speakers = [...contentForm.speakers]
+                          speakers[i] = { ...sp, name: e.target.value }
+                          setContent({ speakers })
+                        }}
+                        placeholder="Rtr. Full Name (required)"
+                        className={fieldCls}
+                      />
+                      <Input
+                        value={sp.designation}
+                        onChange={(e) => {
+                          const speakers = [...contentForm.speakers]
+                          speakers[i] = { ...sp, designation: e.target.value }
+                          setContent({ speakers })
+                        }}
+                        placeholder="Designation"
+                        className={fieldCls}
+                      />
+                      <div className="flex gap-1 shrink-0 self-end sm:self-auto">
+                        <button type="button" onClick={() => setContent({ speakers: moveItem(contentForm.speakers, i, i - 1) })}
+                          className="p-2 rounded-lg border border-[#1A1815]/10 text-[#1A1815]/50 hover:text-[#6D28D9] disabled:opacity-30"
+                          disabled={i === 0} aria-label="Move up">
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => setContent({ speakers: moveItem(contentForm.speakers, i, i + 1) })}
+                          className="p-2 rounded-lg border border-[#1A1815]/10 text-[#1A1815]/50 hover:text-[#6D28D9] disabled:opacity-30"
+                          disabled={i === contentForm.speakers.length - 1} aria-label="Move down">
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => setContent({ speakers: contentForm.speakers.filter((_, j) => j !== i) })}
+                          className="p-2 rounded-lg border border-[#1A1815]/10 text-[#1A1815]/50 hover:text-red-600" aria-label="Remove">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <Input
+                      value={sp.photo_url}
+                      onChange={(e) => {
+                        const speakers = [...contentForm.speakers]
+                        speakers[i] = { ...sp, photo_url: e.target.value }
+                        setContent({ speakers })
+                      }}
+                      placeholder="Photo URL (optional — initials shown otherwise)"
+                      className={`text-xs ${fieldCls}`}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                onClick={handleContentSave}
+                disabled={contentSaving || !contentTablesReady}
+                className="w-full bg-[#6D28D9] hover:bg-[#5B21B6] text-white border-0 h-11 shadow-[0_8px_24px_-10px_rgba(109,40,217,0.55)]"
+              >
+                {contentSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Save landing page
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

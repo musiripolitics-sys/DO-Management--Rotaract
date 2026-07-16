@@ -42,3 +42,6 @@ next-env.d.ts
 
 # member personal data (PII) — generated locally from spreadsheet, never commit
 /scripts/members.json
+
+# Rotary my.rotary.org session cookie — secret, local only, never commit
+/rotary-session.txt
