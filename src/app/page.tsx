@@ -21,6 +21,7 @@ import {
   HeartHandshake,
   KeyRound,
   Loader2,
+  Mail,
   MapPin,
   Medal,
   QrCode,
@@ -183,7 +184,9 @@ export default function LandingPage() {
   const [registerOpen, setRegisterOpen] = useState(false)
   // ── Unified login state ──
   const [loginOpen, setLoginOpen] = useState(false)
-  const [loginStep, setLoginStep] = useState<'identifier' | 'password' | 'set-password'>('identifier')
+  const [loginStep, setLoginStep] = useState<'identifier' | 'password' | 'set-password' | 'forgot-sent'>(
+    'identifier',
+  )
   const [identifier, setIdentifier] = useState('') // email or admin username
   const [loginName, setLoginName] = useState('')
   const [password, setPassword] = useState('')
@@ -274,6 +277,25 @@ export default function LandingPage() {
       window.location.href = data.needsProfile ? '/complete-profile' : (data.dashboard || '/dashboard')
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Login failed')
+    } finally {
+      setLoginLoading(false)
+    }
+  }
+
+  // Forgot password — email a reset link for the identifier already entered
+  const handleForgot = async () => {
+    setLoginLoading(true)
+    try {
+      const res = await fetch('/api/auth/forgot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identifier }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not send reset link')
+      setLoginStep('forgot-sent')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Could not send reset link')
     } finally {
       setLoginLoading(false)
     }
@@ -1484,6 +1506,14 @@ export default function LandingPage() {
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleForgot}
+                    disabled={loginLoading}
+                    className="text-xs font-medium text-[#6D28D9] hover:underline disabled:opacity-50"
+                  >
+                    Forgot password?
+                  </button>
                 </div>
                 <div className="flex gap-2 pt-1">
                   <Button
@@ -1513,6 +1543,40 @@ export default function LandingPage() {
                   </Button>
                 </div>
               </form>
+            </>
+          )}
+
+          {loginStep === 'forgot-sent' && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg">
+                  <span className="w-9 h-9 rounded-full bg-[#6D28D9]/10 flex items-center justify-center shrink-0">
+                    <Mail className="w-4 h-4 text-[#6D28D9]" />
+                  </span>
+                  Check your email
+                </DialogTitle>
+                <DialogDescription className="text-[#1A1815]/55">
+                  If an account exists for{' '}
+                  <span className="font-semibold text-[#1A1815]">{identifier}</span>, we&apos;ve emailed a
+                  password-reset link. It expires in an hour.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="pt-2">
+                <p className="text-xs text-[#1A1815]/50 bg-[#1A1815]/[0.03] rounded-xl px-4 py-3 leading-relaxed">
+                  Didn&apos;t get it? Check spam, or head back and make sure the email is right.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setLoginStep('password')
+                    setPassword('')
+                  }}
+                  className="w-full mt-4 h-11 border-[#1A1815]/15 text-[#1A1815]/70 hover:text-[#1A1815]"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to sign in
+                </Button>
+              </div>
             </>
           )}
         </DialogContent>

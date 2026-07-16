@@ -267,6 +267,42 @@ export async function sendBookingConfirmationEmail(opts: {
 }
 
 /* ────────────────────────────────────────────────────────────────
+ * 1b. Password reset — one-time link to set a new password.
+ * ────────────────────────────────────────────────────────────── */
+
+export async function sendPasswordResetEmail(opts: {
+  name: string | null
+  email: string
+  resetUrl: string
+  expiresMinutes: number
+}): Promise<SendResult> {
+  const { name, email, resetUrl, expiresMinutes } = opts
+
+  const bodyHtml = `
+    <p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:#1A1815B3;">
+      We received a request to reset the password for <strong style="color:#1A1815;">${escapeHtml(email)}</strong>.
+      Click the button below to choose a new one.
+    </p>
+    <p style="margin:0;font-size:13px;line-height:1.55;color:#1A181599;background:#FFFBEB;border-left:3px solid #F2A410;padding:10px 14px;border-radius:6px;">
+      This link expires in ${expiresMinutes} minutes and can be used once. If you didn&rsquo;t request this,
+      you can safely ignore this email — your password stays unchanged.
+    </p>`
+
+  return send(
+    email,
+    'Reset your VIBE password',
+    shell({
+      preheader: 'Use this one-time link to set a new VIBE password.',
+      title: 'Reset your password',
+      intro: `Hi ${escapeHtml((name ?? 'there').split(' ')[0])}, let&rsquo;s get you back in.`,
+      bodyHtml,
+      cta: { label: 'Set a new password', href: resetUrl },
+      footerNote: 'For your security, this link works only once and expires shortly.',
+    }),
+  )
+}
+
+/* ────────────────────────────────────────────────────────────────
  * 2a2. MoM published — sent to every club president (BCC) when a
  *      DRC's Minutes of Meeting go from draft to published.
  * ────────────────────────────────────────────────────────────── */
