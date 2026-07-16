@@ -1,10 +1,20 @@
 import { NextResponse } from 'next/server'
 import { PROJECT_EDITABLE_FIELDS, toMonthKey, isDriveUrl } from '@/lib/projects'
-import { getAdminClient, requireReporter, toInt, clean } from '@/lib/projects-server'
+import {
+  getAdminClient,
+  requireReporter,
+  toInt,
+  clean,
+  toBool,
+  toStringArray,
+  updateClubProject,
+} from '@/lib/projects-server'
 
 type Params = { params: Promise<{ id: string }> }
 
-const NUMERIC = new Set(['beneficiaries', 'volunteers'])
+const NUMERIC = new Set(['beneficiaries', 'volunteers', 'man_hours'])
+const ARRAY = new Set(['areas_of_focus'])
+const BOOL = new Set(['is_joint_project'])
 
 /** Load a project only if it belongs to the caller's club. */
 async function ownedProject(id: string, clubId: string) {
@@ -32,10 +42,18 @@ export async function PATCH(request: Request, { params }: Params) {
     const body = await request.json()
     const updates: Record<string, unknown> = {}
     for (const f of PROJECT_EDITABLE_FIELDS) {
-      if (f in body) updates[f] = NUMERIC.has(f) ? toInt(body[f]) : clean(body[f])
+      if (!(f in body)) continue
+      if (NUMERIC.has(f)) updates[f] = toInt(body[f])
+      else if (ARRAY.has(f)) updates[f] = toStringArray(body[f])
+      else if (BOOL.has(f)) updates[f] = toBool(body[f])
+      else updates[f] = clean(body[f])
     }
     if ('project_name' in updates && !updates.project_name) {
       return NextResponse.json({ error: 'Project name is required.' }, { status: 400 })
+    }
+    // A non-joint project carries no partner.
+    if ('is_joint_project' in updates && updates.is_joint_project === false) {
+      updates.joint_partner = null
     }
     if (updates.drive_folder_url && !isDriveUrl(String(updates.drive_folder_url))) {
       return NextResponse.json(
@@ -54,12 +72,7 @@ export async function PATCH(request: Request, { params }: Params) {
     }
 
     const supabase = getAdminClient()
-    const { data, error } = await supabase
-      .from('club_projects')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
+    const { data, error } = await updateClubProject(supabase, id, updates)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true, project: data })

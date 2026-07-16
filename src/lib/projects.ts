@@ -14,14 +14,23 @@ export type ClubProject = {
   submitted_by: string | null
   report_month: string // 'YYYY-MM-01'
   project_name: string
-  project_date: string | null
+  project_date: string | null // project START date
+  end_date: string | null // project END date (optional)
+  group_no: string | null
+  chairperson_name: string | null
+  secretary_name: string | null
   avenue: string | null
   venue: string | null
+  man_hours: number | null
+  areas_of_focus: string[] | null
   description: string | null
   outcome: string | null
   beneficiaries: number | null
   volunteers: number | null
   drive_folder_url: string | null
+  social_media_url: string | null
+  is_joint_project: boolean | null
+  joint_partner: string | null
   created_at: string
   updated_at: string
 }
@@ -30,16 +39,46 @@ export type ClubProject = {
 export const PROJECT_EDITABLE_FIELDS = [
   'project_name',
   'project_date',
+  'end_date',
+  'group_no',
+  'chairperson_name',
+  'secretary_name',
   'avenue',
   'venue',
+  'man_hours',
+  'areas_of_focus',
   'description',
   'outcome',
   'beneficiaries',
   'volunteers',
   'drive_folder_url',
+  'social_media_url',
+  'is_joint_project',
+  'joint_partner',
 ] as const
 
 export type ProjectField = (typeof PROJECT_EDITABLE_FIELDS)[number]
+
+/** Project form option sets (mirror the district's project report). */
+export const PROJECT_GROUPS = ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5'] as const
+
+export const PROJECT_AVENUES = [
+  'Club Service',
+  'Community Service',
+  'Professional Service',
+  'International Service',
+  'Multi Avenue',
+] as const
+
+export const AREAS_OF_FOCUS = [
+  'Peacebuilding and conflict prevention',
+  'Disease prevention and treatment',
+  'Water, sanitation, and hygiene',
+  'Maternal and child health',
+  'Basic education and literacy',
+  'Community economic development',
+  'Protecting our environment',
+] as const
 
 /* ── Month-key helpers (a "month key" is always 'YYYY-MM-01') ────
  * All "now"-derived math is anchored to IST (UTC+5:30) so the

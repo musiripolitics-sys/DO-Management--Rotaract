@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server'
 import { activeReportMonth, toMonthKey, isDriveUrl } from '@/lib/projects'
-import { getAdminClient, requireReporter, toInt, clean } from '@/lib/projects-server'
+import {
+  getAdminClient,
+  requireReporter,
+  toInt,
+  clean,
+  toBool,
+  toStringArray,
+  insertClubProject,
+} from '@/lib/projects-server'
 
 // GET — the reporter's club profile + all its projects.
 export async function GET() {
@@ -67,25 +75,32 @@ export async function POST(request: Request) {
         ? toMonthKey(String(body.project_date))
         : activeReportMonth()
 
+    const isJoint = toBool(body.is_joint_project)
+
     const supabase = getAdminClient()
-    const { data, error } = await supabase
-      .from('club_projects')
-      .insert({
-        club_id: me.club_id,
-        submitted_by: me.id,
-        report_month: reportMonth,
-        project_name: projectName,
-        project_date: clean(body.project_date),
-        avenue: clean(body.avenue),
-        venue: clean(body.venue),
-        description: clean(body.description),
-        outcome: clean(body.outcome),
-        beneficiaries: toInt(body.beneficiaries),
-        volunteers: toInt(body.volunteers),
-        drive_folder_url: driveUrl,
-      })
-      .select()
-      .single()
+    const { data, error } = await insertClubProject(supabase, {
+      club_id: me.club_id,
+      submitted_by: me.id,
+      report_month: reportMonth,
+      project_name: projectName,
+      project_date: clean(body.project_date),
+      end_date: clean(body.end_date),
+      group_no: clean(body.group_no),
+      chairperson_name: clean(body.chairperson_name),
+      secretary_name: clean(body.secretary_name),
+      avenue: clean(body.avenue),
+      venue: clean(body.venue),
+      man_hours: toInt(body.man_hours),
+      areas_of_focus: toStringArray(body.areas_of_focus),
+      description: clean(body.description),
+      outcome: clean(body.outcome),
+      beneficiaries: toInt(body.beneficiaries),
+      volunteers: toInt(body.volunteers),
+      drive_folder_url: driveUrl,
+      social_media_url: clean(body.social_media_url),
+      is_joint_project: isJoint,
+      joint_partner: isJoint ? clean(body.joint_partner) : null,
+    })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true, project: data })

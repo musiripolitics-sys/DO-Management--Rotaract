@@ -87,3 +87,72 @@ export const clean = (v: unknown): string | null => {
   const s = typeof v === 'string' ? v.trim() : ''
   return s === '' ? null : s
 }
+
+export const toBool = (v: unknown): boolean => v === true || v === 'true' || v === 'yes' || v === 1 || v === '1'
+
+/* ── Resilient project writes ──────────────────────────────────────
+ * The v2 columns (schema_secretary_projects_v2.sql) may not be
+ * applied yet. If a write fails because a column is missing, retry
+ * without the v2 fields so the core report still saves. */
+
+const V2_COLUMNS = [
+  'end_date',
+  'group_no',
+  'chairperson_name',
+  'secretary_name',
+  'man_hours',
+  'areas_of_focus',
+  'social_media_url',
+  'is_joint_project',
+  'joint_partner',
+] as const
+
+function isMissingColumn(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false
+  const blob = `${err.code ?? ''} ${err.message ?? ''}`
+  return /42703|PGRST204|column .* does not exist|could not find the .* column/i.test(blob)
+}
+
+function stripV2<T extends Record<string, unknown>>(row: T): Partial<T> {
+  const out = { ...row }
+  for (const k of V2_COLUMNS) delete out[k]
+  return out
+}
+
+type WriteResult = { data: Record<string, unknown> | null; error: { message: string } | null }
+
+export async function insertClubProject(
+  supabase: ReturnType<typeof getAdminClient>,
+  row: Record<string, unknown>,
+): Promise<WriteResult> {
+  let res = await supabase.from('club_projects').insert(row).select().single()
+  if (res.error && isMissingColumn(res.error)) {
+    res = await supabase.from('club_projects').insert(stripV2(row)).select().single()
+  }
+  return res
+}
+
+export async function updateClubProject(
+  supabase: ReturnType<typeof getAdminClient>,
+  id: string,
+  updates: Record<string, unknown>,
+): Promise<WriteResult> {
+  let res = await supabase.from('club_projects').update(updates).eq('id', id).select().single()
+  if (res.error && isMissingColumn(res.error)) {
+    const reduced = stripV2(updates)
+    if (Object.keys(reduced).length === 0) return res
+    res = await supabase.from('club_projects').update(reduced).eq('id', id).select().single()
+  }
+  return res
+}
+
+/** Normalize a checkbox group to a clean string array (trimmed, de-duped). */
+export const toStringArray = (v: unknown): string[] => {
+  if (!Array.isArray(v)) return []
+  const out = new Set<string>()
+  for (const item of v) {
+    const s = typeof item === 'string' ? item.trim() : ''
+    if (s) out.add(s)
+  }
+  return [...out]
+}
