@@ -1,13 +1,33 @@
 import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 
 /* ────────────────────────────────────────────────────────────────
- * Resend client — initialised lazily so missing API key doesn't
- * break the whole server. Send calls return {success: false} if
- * the API key isn't set, so the app keeps working in dev/CI.
+ * Outbound email transport.
+ *
+ *  1. SMTP (preferred when configured): set SMTP_USER + SMTP_PASS
+ *     (e.g. a Gmail address + app password). SMTP_HOST/SMTP_PORT
+ *     default to Gmail. EMAIL_FROM should match the SMTP account
+ *     (or one of its verified aliases) or Gmail will rewrite it.
+ *  2. Resend (fallback): RESEND_API_KEY.
+ *  3. Neither set → send calls return {success:false} and log,
+ *     so the app keeps working in dev/CI.
  * ────────────────────────────────────────────────────────────── */
 
 const FROM_ADDRESS = process.env.EMAIL_FROM || 'VIBE District 3233 <onboarding@resend.dev>'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://vibe-district3233.netlify.app'
+
+function getSmtp() {
+  const user = process.env.SMTP_USER
+  const pass = process.env.SMTP_PASS?.replace(/\s+/g, '') // app passwords are shown with cosmetic spaces
+  if (!user || !pass) return null
+  const port = Number(process.env.SMTP_PORT || 465)
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  })
+}
 
 function getResend(): Resend | null {
   const key = process.env.RESEND_API_KEY
@@ -22,10 +42,21 @@ async function send(
   subject: string,
   html: string,
 ): Promise<SendResult> {
+  const smtp = getSmtp()
+  if (smtp) {
+    try {
+      const info = await smtp.sendMail({ from: FROM_ADDRESS, to, subject, html })
+      return { success: true, id: info.messageId }
+    } catch (err) {
+      console.error('[email] SMTP error:', err)
+      return { success: false, error: err instanceof Error ? err.message : 'SMTP send failed' }
+    }
+  }
+
   const resend = getResend()
   if (!resend) {
-    console.warn(`[email] RESEND_API_KEY not set — skipping: "${subject}" → ${to}`)
-    return { success: false, error: 'RESEND_API_KEY not configured' }
+    console.warn(`[email] No SMTP_USER/SMTP_PASS or RESEND_API_KEY set — skipping: "${subject}" → ${to}`)
+    return { success: false, error: 'Email transport not configured' }
   }
 
   try {
