@@ -23,6 +23,24 @@ async function requireAdmin() {
   return hasAccess(s?.role, MOM_TIER)
 }
 
+type AdminClient = ReturnType<typeof getAdminClient>
+
+/* The MoM blast recipients: every club president with an email on file.
+ * Shared by GET (to show the count in the confirm dialog) and PATCH (to
+ * actually send), so the number the user confirms is the number we mail. */
+async function listPresidentEmails(supabase: AdminClient): Promise<string[]> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('access_role', 'president')
+    .not('email', 'is', null)
+  return Array.from(new Set((data ?? []).map((p) => p.email as string).filter(Boolean)))
+}
+
+async function countPresidents(supabase: AdminClient): Promise<number> {
+  return (await listPresidentEmails(supabase)).length
+}
+
 type Params = { params: Promise<{ id: string }> }
 
 // GET — full MoM: meeting + updates (nested) + completion + stats.
@@ -106,6 +124,8 @@ export async function GET(_req: Request, { params }: Params) {
       completion: computeCompletion(updates, registeredClubs ?? 0),
       stats: computeStats(updates),
       registeredClubs: registeredClubs ?? 0,
+      // Recipient count for the publish confirmation dialog.
+      presidentCount: await countPresidents(supabase),
     })
   } catch (error: unknown) {
     return NextResponse.json(
@@ -152,15 +172,16 @@ export async function PATCH(request: Request, { params }: Params) {
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    /* Notify all club presidents when the MoM goes live (non-blocking failure). */
+    /* Notify all club presidents when the MoM goes live — only when the
+     * caller explicitly opts in (`notify: true`), since this mails every
+     * president at once. "Publish only" leaves inboxes untouched, and the
+     * draft→published edge check keeps a re-publish from double-sending. */
     let emailed = 0
-    if (body.status === 'published' && before?.status !== 'published') {
-      const { data: presidents } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('access_role', 'president')
-        .not('email', 'is', null)
-      const emails = Array.from(new Set((presidents ?? []).map((p) => p.email as string).filter(Boolean)))
+    let emailError: string | null = null
+    const shouldNotify =
+      body.notify === true && body.status === 'published' && before?.status !== 'published'
+    if (shouldNotify) {
+      const emails = await listPresidentEmails(supabase)
       if (emails.length > 0) {
         const ev = Array.isArray(before?.event) ? before?.event[0] : before?.event
         const result = await sendMomPublishedEmail({
@@ -178,11 +199,19 @@ export async function PATCH(request: Request, { params }: Params) {
           presidentEmails: emails,
         })
         if (result.success) emailed = emails.length
-        else console.error('[mom] publish email failed:', result.error)
+        else {
+          // Surface it: publishing still succeeded, but the user asked for
+          // mail to go out and it didn't. Silence here is what let a broken
+          // transport look like a working publish.
+          emailError = result.error ?? 'Send failed'
+          console.error('[mom] publish email failed:', result.error)
+        }
+      } else {
+        emailError = 'No club presidents have an email address on file'
       }
     }
 
-    return NextResponse.json({ success: true, mom: data, emailed })
+    return NextResponse.json({ success: true, mom: data, emailed, emailError })
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal Server Error' },

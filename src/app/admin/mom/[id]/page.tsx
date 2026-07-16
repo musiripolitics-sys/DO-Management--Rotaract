@@ -26,6 +26,7 @@ import {
 import UpdateForm from './_components/UpdateForm'
 import UpdateCard from './_components/UpdateCard'
 import MomPreview from './_components/MomPreview'
+import PublishDialog from './_components/PublishDialog'
 
 type Tab = 'updates' | 'review' | 'preview'
 
@@ -41,6 +42,8 @@ export default function MomBuilderPage({ params }: { params: Promise<{ id: strin
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<MomUpdate | null>(null)
   const [publishing, setPublishing] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [presidentCount, setPresidentCount] = useState(0)
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/admin/mom/${id}`)
@@ -50,6 +53,7 @@ export default function MomBuilderPage({ params }: { params: Promise<{ id: strin
     setUpdates(d.updates)
     setCompletion(d.completion)
     setStats(d.stats)
+    setPresidentCount(d.presidentCount ?? 0)
     setLoading(false)
   }, [id])
 
@@ -94,16 +98,21 @@ export default function MomBuilderPage({ params }: { params: Promise<{ id: strin
     else toast.error('Could not duplicate')
   }
 
-  const setPublish = async (status: 'draft' | 'published') => {
+  const setPublish = async (status: 'draft' | 'published', notify = false) => {
     setPublishing(true)
     try {
       const res = await fetch(`/api/admin/mom/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, notify }),
       })
       if (!res.ok) throw new Error()
-      toast.success(status === 'published' ? 'MoM published!' : 'Reverted to draft')
+      const d = await res.json()
+      if (status !== 'published') toast.success('Reverted to draft')
+      else if (!notify) toast.success('Published — no email sent')
+      else if (d.emailed > 0) toast.success(`Published — emailed ${d.emailed} president${d.emailed === 1 ? '' : 's'}`)
+      else toast.error(`Published, but the email failed: ${d.emailError ?? 'unknown error'}`, { duration: 8000 })
+      setConfirmOpen(false)
       load()
     } catch {
       toast.error('Could not update status')
@@ -211,7 +220,7 @@ export default function MomBuilderPage({ params }: { params: Promise<{ id: strin
               <Printer className="w-4 h-4" /> Print
             </button>
             {meeting.status === 'draft' ? (
-              <button onClick={() => setPublish('published')} disabled={publishing} className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl px-4 py-2.5">
+              <button onClick={() => setConfirmOpen(true)} disabled={publishing} className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl px-4 py-2.5">
                 {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> Publish</>}
               </button>
             ) : (
@@ -234,6 +243,15 @@ export default function MomBuilderPage({ params }: { params: Promise<{ id: strin
           existing={editing}
           onSaved={load}
           onCancel={() => setFormOpen(false)}
+        />
+      )}
+
+      {confirmOpen && (
+        <PublishDialog
+          presidentCount={presidentCount}
+          publishing={publishing}
+          onCancel={() => setConfirmOpen(false)}
+          onPublish={(notify) => setPublish('published', notify)}
         />
       )}
 
