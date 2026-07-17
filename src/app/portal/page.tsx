@@ -21,6 +21,7 @@ import {
   Loader2,
   ClipboardList,
   TrendingUp,
+  Lock,
 } from 'lucide-react'
 import {
   Dialog,
@@ -50,6 +51,7 @@ type DRCEvent = {
   location: string | null
   event_date: string
   start_time: string
+  booking_closed?: boolean
   booked: boolean
   booking: {
     id: string
@@ -61,6 +63,8 @@ type DRCEvent = {
     created_at: string
   } | null
 }
+
+type ChiefContact = { name: string; phone: string | null }
 
 type BookingForm = {
   club_name: string
@@ -78,6 +82,7 @@ export default function PresidentPortal() {
   const [bookingLoading, setBookingLoading] = useState(false)
   const [cancelTarget, setCancelTarget] = useState<DRCEvent | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [chiefContact, setChiefContact] = useState<ChiefContact | null>(null)
   const [form, setForm] = useState<BookingForm>({
     club_name: '',
     attendee_count: '',
@@ -139,6 +144,7 @@ export default function PresidentPortal() {
       const data = await res.json()
       setProfile(data.profile)
       setEvents(data.events ?? [])
+      setChiefContact(data.chiefContact ?? null)
       setForm((f) => ({
         ...f,
         club_name: data.profile?.club_name ?? '',
@@ -168,6 +174,8 @@ export default function PresidentPortal() {
   }, [])
 
   function openBooking(event: DRCEvent) {
+    // Locked events never open the dialog (button is disabled; belt-and-braces).
+    if (event.booking_closed) return
     // If already booked, prefill with existing values; otherwise prefill with profile defaults
     if (event.booked && event.booking) {
       setForm({
@@ -527,6 +535,12 @@ export default function PresidentPortal() {
                           Booked
                         </span>
                       )}
+                      {ev.booking_closed && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.15em] bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded-full">
+                          <Lock className="w-2.5 h-2.5" />
+                          Booking closed
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-white/40">
                       <span className="flex items-center gap-1">
@@ -547,8 +561,38 @@ export default function PresidentPortal() {
                         {ev.booking.club_name}
                       </p>
                     )}
+                    {ev.booking_closed && (
+                      <p className="text-xs text-amber-300/90 mt-1.5 flex items-start gap-1.5">
+                        <Lock className="w-3 h-3 mt-0.5 shrink-0" />
+                        <span>
+                          Slot booking is closed — contact the Chief Sergeant
+                          {chiefContact ? (
+                            <>
+                              , <span className="font-semibold">{chiefContact.name}</span>
+                              {chiefContact.phone && (
+                                <>
+                                  {' '}·{' '}
+                                  <a href={`tel:${chiefContact.phone}`} className="underline hover:text-amber-200">
+                                    {chiefContact.phone}
+                                  </a>
+                                </>
+                              )}
+                            </>
+                          ) : null}
+                          {ev.booked ? ', for any changes to your booking.' : ', to book a slot.'}
+                        </span>
+                      </p>
+                    )}
                   </div>
-                  {ev.booked ? (
+                  {ev.booking_closed ? (
+                    <button
+                      disabled
+                      className="shrink-0 inline-flex items-center gap-1.5 text-sm font-semibold text-white/35 border border-white/10 px-4 py-2 rounded-xl cursor-not-allowed"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      {ev.booked ? 'Locked' : 'Closed'}
+                    </button>
+                  ) : ev.booked ? (
                     <button
                       onClick={() => openBooking(ev)}
                       className="shrink-0 inline-flex items-center gap-1.5 text-sm font-semibold text-[#2D9DDB] hover:text-white border border-[#2D9DDB]/30 hover:border-[#2D9DDB]/70 hover:bg-[#2D9DDB]/15 px-3 py-2 rounded-xl transition-colors"

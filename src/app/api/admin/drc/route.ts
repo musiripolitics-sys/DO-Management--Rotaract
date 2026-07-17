@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getSession, hasAccess, OVERSIGHT_TIER } from '@/lib/session'
+import { getSession, hasAccess, OVERSIGHT_TIER, SERGEANT_MANAGE_TIER } from '@/lib/session'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -28,16 +28,29 @@ export async function GET() {
 
     const supabase = getAdminClient()
 
-    // 1. DRC-category events
-    const { data: events, error: eventsErr } = await supabase
-      .from('events')
-      .select('id, name, location, event_date, start_time')
-      .eq('category', 'DRC')
-      .order('start_time', { ascending: true })
+    // 1. DRC-category events (booking_closed arrives with
+    //    schema_drc_booking_lock.sql — fall back gracefully without it)
+    let events: Array<Record<string, unknown>> | null = null
+    {
+      const withLock = await supabase
+        .from('events')
+        .select('id, name, location, event_date, start_time, booking_closed')
+        .eq('category', 'DRC')
+        .order('start_time', { ascending: true })
+      if (!withLock.error) {
+        events = withLock.data
+      } else {
+        const bare = await supabase
+          .from('events')
+          .select('id, name, location, event_date, start_time')
+          .eq('category', 'DRC')
+          .order('start_time', { ascending: true })
+        if (bare.error) return NextResponse.json({ error: bare.error.message }, { status: 500 })
+        events = (bare.data ?? []).map((e) => ({ ...e, booking_closed: false }))
+      }
+    }
 
-    if (eventsErr) return NextResponse.json({ error: eventsErr.message }, { status: 500 })
-
-    const eventIds = (events ?? []).map((e) => e.id)
+    const eventIds = (events ?? []).map((e) => e.id as string)
 
     // 2. Bookings for those events (graceful if the table is missing)
     type Booking = {
@@ -76,7 +89,7 @@ export async function GET() {
     }
 
     const result = (events ?? []).map((e) => {
-      const list = byEvent.get(e.id) ?? []
+      const list = byEvent.get(e.id as string) ?? []
       return {
         ...e,
         totalClubs: list.length,
@@ -94,7 +107,63 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({ events: result })
+    return NextResponse.json({
+      events: result,
+      // Chief sergeant + full admins may open/close slot booking.
+      canManageBooking: hasAccess(session.role, SERGEANT_MANAGE_TIER),
+    })
+  } catch (error: unknown) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
+      { status: 500 },
+    )
+  }
+}
+
+// PATCH — open/close slot booking for a DRC event.
+// Restricted to the chief sergeant and full admins.
+export async function PATCH(request: Request) {
+  try {
+    const session = await getSession()
+    if (!session) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
+    if (!hasAccess(session.role, SERGEANT_MANAGE_TIER)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const body = await request.json()
+    const eventId = typeof body.event_id === 'string' ? body.event_id : null
+    if (!eventId || typeof body.booking_closed !== 'boolean') {
+      return NextResponse.json(
+        { error: 'event_id and booking_closed (boolean) are required' },
+        { status: 400 },
+      )
+    }
+
+    const supabase = getAdminClient()
+    const { data, error } = await supabase
+      .from('events')
+      .update({ booking_closed: body.booking_closed })
+      .eq('id', eventId)
+      .eq('category', 'DRC')
+      .select('id, booking_closed')
+      .maybeSingle()
+
+    if (error) {
+      const missingColumn = error.code === '42703' || /booking_closed/.test(error.message)
+      return NextResponse.json(
+        {
+          error: missingColumn
+            ? 'Run supabase/schema_drc_booking_lock.sql first — the booking_closed column is missing.'
+            : error.message,
+        },
+        { status: 500 },
+      )
+    }
+    if (!data) {
+      return NextResponse.json({ error: 'DRC event not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, event: data })
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal Server Error' },

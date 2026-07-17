@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendBookingConfirmationEmail } from '@/lib/email'
 import { getSession } from '@/lib/session'
+import { isBookingClosed, BOOKING_CLOSED_MESSAGE } from '@/lib/drc'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -28,6 +29,39 @@ async function getPresidentProfile() {
   return { ...profile, club_name: (c as { name?: string } | null)?.name ?? null }
 }
 
+/* events.booking_closed arrives with schema_drc_booking_lock.sql — select
+ * it when present, treat every event as open when the column is missing. */
+async function fetchDrcEvents(supabase: ReturnType<typeof getAdminClient>) {
+  const withLock = await supabase
+    .from('events')
+    .select('id, name, location, event_date, start_time, category, booking_closed')
+    .eq('category', 'DRC')
+    .order('start_time', { ascending: true })
+  if (!withLock.error) return withLock
+
+  const bare = await supabase
+    .from('events')
+    .select('id, name, location, event_date, start_time, category')
+    .eq('category', 'DRC')
+    .order('start_time', { ascending: true })
+  return {
+    ...bare,
+    data: bare.data?.map((e) => ({ ...e, booking_closed: false })) ?? null,
+  }
+}
+
+/** Whom to contact when booking is closed — the chief sergeant on record. */
+async function getChiefContact(supabase: ReturnType<typeof getAdminClient>) {
+  const { data } = await supabase
+    .from('profiles')
+    .select('full_name, phone_number')
+    .eq('access_role', 'chief_sergeant')
+    .not('full_name', 'is', null)
+    .limit(1)
+    .maybeSingle()
+  return data ? { name: data.full_name as string, phone: (data.phone_number as string | null) ?? null } : null
+}
+
 export async function GET() {
   try {
     const profile = await getPresidentProfile()
@@ -37,16 +71,13 @@ export async function GET() {
 
     const supabase = getAdminClient()
 
-    const [eventsRes, bookingsRes] = await Promise.all([
-      supabase
-        .from('events')
-        .select('id, name, location, event_date, start_time, category')
-        .eq('category', 'DRC')
-        .order('start_time', { ascending: true }),
+    const [eventsRes, bookingsRes, chiefContact] = await Promise.all([
+      fetchDrcEvents(supabase),
       supabase
         .from('drc_bookings')
         .select('id, event_id, club_name, attendee_count, contact_name, contact_phone, notes, created_at')
         .eq('booked_by', profile.id),
+      getChiefContact(supabase),
     ])
 
     if (eventsRes.error) {
@@ -64,7 +95,7 @@ export async function GET() {
       booking: bookingsByEvent[e.id] ?? null,
     }))
 
-    return NextResponse.json({ events, profile })
+    return NextResponse.json({ events, profile, chiefContact })
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal Server Error' },
@@ -100,6 +131,10 @@ export async function POST(request: Request) {
 
     if (eventError || !event || event.category !== 'DRC') {
       return NextResponse.json({ error: 'Event not found or not a DRC event' }, { status: 404 })
+    }
+
+    if (await isBookingClosed(supabase, event_id)) {
+      return NextResponse.json({ error: BOOKING_CLOSED_MESSAGE }, { status: 403 })
     }
 
     const { data, error } = await supabase

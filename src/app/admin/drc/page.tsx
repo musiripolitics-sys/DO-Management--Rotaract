@@ -12,7 +12,10 @@ import {
   BookMarked,
   Building2,
   Download,
+  Lock,
+  LockOpen,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 type Booking = {
   id: string
@@ -31,6 +34,7 @@ type DRCEvent = {
   location: string | null
   event_date: string
   start_time: string
+  booking_closed?: boolean
   totalClubs: number
   totalAttendees: number
   bookings: Booking[]
@@ -48,6 +52,8 @@ export default function DRCRegistrationsPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [canManageBooking, setCanManageBooking] = useState(false)
+  const [togglingLock, setTogglingLock] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/drc')
@@ -55,6 +61,7 @@ export default function DRCRegistrationsPage() {
       .then((d) => {
         if (d?.events) {
           setEvents(d.events)
+          setCanManageBooking(Boolean(d.canManageBooking))
           if (d.events.length > 0) setSelectedId(d.events[0].id)
         } else {
           setError(d?.error || 'Could not load DRC events')
@@ -62,6 +69,35 @@ export default function DRCRegistrationsPage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Network error'))
   }, [])
+
+  async function toggleBookingLock(ev: DRCEvent) {
+    const closing = !ev.booking_closed
+    if (
+      closing &&
+      !confirm(
+        `Close slot booking for "${ev.name}"?\n\nPresidents will no longer be able to book, edit, or cancel slots — they'll be told to contact the Chief Sergeant.`,
+      )
+    )
+      return
+    setTogglingLock(true)
+    try {
+      const res = await fetch('/api/admin/drc', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id: ev.id, booking_closed: closing }),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error || 'Could not update')
+      setEvents((prev) =>
+        prev?.map((e) => (e.id === ev.id ? { ...e, booking_closed: closing } : e)) ?? null,
+      )
+      toast.success(closing ? 'Slot booking closed' : 'Slot booking reopened')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not update booking status')
+    } finally {
+      setTogglingLock(false)
+    }
+  }
 
   const selected = useMemo(
     () => events?.find((e) => e.id === selectedId) ?? null,
@@ -176,6 +212,12 @@ export default function DRCRegistrationsPage() {
                       <Users className="w-3 h-3" />
                       {e.totalAttendees} attendees
                     </span>
+                    {e.booking_closed && (
+                      <span className="inline-flex items-center gap-1 font-bold text-amber-700">
+                        <Lock className="w-3 h-3" />
+                        Booking closed
+                      </span>
+                    )}
                   </div>
                 </button>
               )
@@ -209,18 +251,50 @@ export default function DRCRegistrationsPage() {
                       <BookMarked className="w-3.5 h-3.5" />
                       {selected.totalClubs} clubs · {selected.totalAttendees} attendees
                     </span>
+                    {selected.booking_closed && (
+                      <span className="inline-flex items-center gap-1.5 text-amber-700 font-semibold">
+                        <Lock className="w-3.5 h-3.5" />
+                        Booking closed to presidents
+                      </span>
+                    )}
                   </div>
                 </div>
-                {selected.bookings.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={downloadCsv}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[#1A1815]/12 hover:border-[#6D28D9]/40 hover:bg-[#F5F3FF] hover:text-[#6D28D9] text-[#1A1815] text-sm font-medium px-4 py-2 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    Export CSV
-                  </button>
-                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {canManageBooking && (
+                    <button
+                      type="button"
+                      onClick={() => toggleBookingLock(selected)}
+                      disabled={togglingLock}
+                      className={`inline-flex items-center gap-2 rounded-xl border text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 ${
+                        selected.booking_closed
+                          ? 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'
+                          : 'border-amber-300 text-amber-700 hover:bg-amber-50'
+                      }`}
+                    >
+                      {selected.booking_closed ? (
+                        <>
+                          <LockOpen className="w-4 h-4" />
+                          Reopen booking
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-4 h-4" />
+                          Close booking
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {selected.bookings.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={downloadCsv}
+                      className="inline-flex items-center gap-2 rounded-xl border border-[#1A1815]/12 hover:border-[#6D28D9]/40 hover:bg-[#F5F3FF] hover:text-[#6D28D9] text-[#1A1815] text-sm font-medium px-4 py-2 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      Export CSV
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <h2 className="text-lg font-bold text-[#1A1815]">Pick a DRC event</h2>

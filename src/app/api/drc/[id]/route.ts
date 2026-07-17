@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendBookingConfirmationEmail } from '@/lib/email'
 import { getSession } from '@/lib/session'
+import { isBookingClosed, BOOKING_CLOSED_MESSAGE } from '@/lib/drc'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -53,7 +54,7 @@ export async function PATCH(request: Request, { params }: Params) {
     // Verify ownership: the booking must belong to this president
     const { data: existing } = await supabase
       .from('drc_bookings')
-      .select('id, booked_by')
+      .select('id, booked_by, event_id')
       .eq('id', id)
       .single()
 
@@ -62,6 +63,11 @@ export async function PATCH(request: Request, { params }: Params) {
         { error: 'Booking not found or not yours to edit' },
         { status: 404 },
       )
+    }
+
+    // A closed event freezes its bookings — edits go through the Chief Sergeant.
+    if (await isBookingClosed(supabase, existing.event_id)) {
+      return NextResponse.json({ error: BOOKING_CLOSED_MESSAGE }, { status: 403 })
     }
 
     const { data, error } = await supabase
@@ -130,7 +136,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     // Verify ownership
     const { data: existing } = await supabase
       .from('drc_bookings')
-      .select('id, booked_by')
+      .select('id, booked_by, event_id')
       .eq('id', id)
       .single()
 
@@ -139,6 +145,11 @@ export async function DELETE(_request: Request, { params }: Params) {
         { error: 'Booking not found or not yours to cancel' },
         { status: 404 },
       )
+    }
+
+    // A closed event freezes its bookings — cancellations go through the Chief Sergeant.
+    if (await isBookingClosed(supabase, existing.event_id)) {
+      return NextResponse.json({ error: BOOKING_CLOSED_MESSAGE }, { status: 403 })
     }
 
     const { error } = await supabase.from('drc_bookings').delete().eq('id', id)
