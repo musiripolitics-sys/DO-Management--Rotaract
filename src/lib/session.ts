@@ -91,8 +91,10 @@ export function dashboardForRole(role: AccessRole): string {
   if (role === 'drs') return '/admin/projects' // data-driven: monthly club reports
   if (role === 'adrs') return '/admin/mom' // DRC meetings + MoM
 
-  if (role === 'chief_sergeant') return '/admin/sergeant-team'
-  if (role === 'sergeant') return '/admin/scanner'
+  // Sergeants land on their personal home (profile + QR + rank) and reach
+  // the scanner / attendance tools from the cards there — same principle as
+  // members, presidents, and the secretariat, who all lead with their pass.
+  if (role === 'chief_sergeant' || role === 'sergeant') return '/dashboard'
   if (role === 'president') return '/portal'
   if (role === 'secretary') return '/secretary'
   if (role === 'district_official') return '/do-portal'

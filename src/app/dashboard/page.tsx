@@ -7,6 +7,7 @@ import { Trophy, Clock, LogOut, CheckCircle2, User, Briefcase, MapPin, Phone, Dr
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { getBadgeForCount, getNextBadge } from '@/lib/badges'
+import RoleTools from './_components/RoleTools'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -53,6 +54,7 @@ type Profile = {
 
 export default function Dashboard() {
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [role, setRole] = useState<string>('member')
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([])
   const [rank, setRank] = useState<number | null>(null)
   const [referrals, setReferrals] = useState<any>(null)
@@ -97,6 +99,7 @@ export default function Dashboard() {
         return
       }
 
+      setRole(role)
       setProfile(data.profile)
       setAttendance(data.attendance || [])
       setRank(data.rank ?? null)
@@ -355,6 +358,8 @@ export default function Dashboard() {
 
           {/* Right Column: Recent Activity */}
           <div className="col-span-1 md:col-span-2 space-y-8">
+            <RoleTools role={role} />
+
             {isAuthorized && referrals && (
               <Card className="bg-gradient-to-br from-[#1a468f]/20 to-[#2d9ddb]/10 border-white/10 border-0 ring-1 ring-white/10 shadow-xl overflow-hidden relative">
                 <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">

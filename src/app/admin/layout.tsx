@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import {
   LogOut,
   LayoutDashboard,
+  Home,
   QrCode,
   CalendarPlus,
   ClipboardList,
@@ -101,6 +102,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const navItems = [
+    // Sergeants operate from their personal home — this links back to it.
+    { name: 'My Home', href: '/dashboard', icon: Home, roles: ['sergeant', 'chief'] },
     { name: 'Overview', href: '/admin', icon: LayoutDashboard, roles: ['admin', 'drs', 'adrs'] },
     { name: 'Events', href: '/admin/events', icon: CalendarPlus, roles: ['admin'] },
     { name: 'Members', href: '/admin/members', icon: Users, roles: ['admin'] },
