@@ -116,9 +116,14 @@ export function addMonths(key: string, n: number): string {
   return `${y}-${String(m).padStart(2, '0')}-01`
 }
 
-/** The month a secretary is currently expected to report (previous calendar month). */
+/**
+ * The month the report UI opens on — the current calendar month, so a
+ * secretary can report the month in progress (earlier months stay
+ * selectable via recentReportMonths). The deadline for any given month is
+ * still the 5th of the following month (see deadlineFor).
+ */
 export function activeReportMonth(now: Date = new Date()): string {
-  return addMonths(monthKeyOf(now), -1)
+  return monthKeyOf(now)
 }
 
 /** "June 2026" for a month key. */
