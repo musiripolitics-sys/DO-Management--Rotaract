@@ -60,7 +60,7 @@ export const PROJECT_EDITABLE_FIELDS = [
 export type ProjectField = (typeof PROJECT_EDITABLE_FIELDS)[number]
 
 /** Project form option sets (mirror the district's project report). */
-export const PROJECT_GROUPS = ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5'] as const
+export const PROJECT_GROUPS = ['Group 1', 'Group 2', 'Group 3', 'Group 4', 'Group 5', 'Group 6', 'Group 7'] as const
 
 export const PROJECT_AVENUES = [
   'Club Service',
