@@ -144,10 +144,27 @@ export function periodLabelShort(key: string): string {
   })
 }
 
-/** Last `n` report months, most recent first, starting from the active month. */
+/**
+ * First month reporting was available. Months before this are never
+ * offered in the picker, so the list runs from the current month back to
+ * (and no further than) this month. Bump it when a new cycle begins.
+ */
+export const REPORTING_START_MONTH = '2026-06-01'
+
+/**
+ * Report months to offer, most recent first: from the active (current)
+ * month back to REPORTING_START_MONTH, capped at `n`. Never goes earlier
+ * than the start month.
+ */
 export function recentReportMonths(n = 6, now: Date = new Date()): string[] {
   const start = activeReportMonth(now)
-  return Array.from({ length: n }, (_, i) => addMonths(start, -i))
+  const out: string[] = []
+  for (let i = 0; i < n; i++) {
+    const key = addMonths(start, -i)
+    if (key < REPORTING_START_MONTH) break // 'YYYY-MM-01' sorts chronologically
+    out.push(key)
+  }
+  return out
 }
 
 /* ── Deadline: the 5th of the month AFTER the reported month ───── */
