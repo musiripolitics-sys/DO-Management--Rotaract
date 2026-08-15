@@ -29,6 +29,7 @@ type Profile = {
   email: string | null
   club_name: string | null
   designation: string | null
+  access_role: string | null
 }
 
 type Attendee = {
@@ -127,6 +128,22 @@ export default function AttendancePage() {
         (e.category || '').toLowerCase().includes(q),
     )
   }, [events, eventQuery])
+
+  // How many of each role were present — Presidents, Secretaries, District
+  // Officials, Members (everyone else is folded into "Others").
+  const roleBreakdown = useMemo(() => {
+    const b = { president: 0, secretary: 0, district_official: 0, member: 0, other: 0 }
+    if (!detail) return b
+    for (const a of detail.attendees) {
+      const r = pickOne<Profile>(a.profiles)?.access_role
+      if (r === 'president') b.president++
+      else if (r === 'secretary') b.secretary++
+      else if (r === 'district_official') b.district_official++
+      else if (r === 'member') b.member++
+      else b.other++
+    }
+    return b
+  }, [detail])
 
   const filteredAttendees = useMemo(() => {
     if (!detail) return []
@@ -327,6 +344,21 @@ export default function AttendancePage() {
           </div>
 
           {detail && detail.attendees.length > 0 && (
+            <div className="px-6 py-4 border-b border-[#1A1815]/6 bg-[#FAFAF9]/60">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#1A1815]/45 mb-2.5">
+                Present by role
+              </p>
+              <div className="flex flex-wrap gap-2.5">
+                <RoleStat label="Presidents" count={roleBreakdown.president} />
+                <RoleStat label="Secretaries" count={roleBreakdown.secretary} />
+                <RoleStat label="District Officials" count={roleBreakdown.district_official} />
+                <RoleStat label="Members" count={roleBreakdown.member} />
+                {roleBreakdown.other > 0 && <RoleStat label="Others" count={roleBreakdown.other} />}
+              </div>
+            </div>
+          )}
+
+          {detail && detail.attendees.length > 0 && (
             <div className="px-6 py-3 border-b border-[#1A1815]/6">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1A1815]/35" />
@@ -453,6 +485,15 @@ export default function AttendancePage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function RoleStat({ label, count }: { label: string; count: number }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-xl border border-[#1A1815]/10 bg-white px-3.5 py-2">
+      <span className="text-lg font-extrabold text-[#6D28D9] tabular-nums leading-none">{count}</span>
+      <span className="text-xs font-medium text-[#1A1815]/70">{label}</span>
     </div>
   )
 }

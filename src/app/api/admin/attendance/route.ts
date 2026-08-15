@@ -36,7 +36,7 @@ export async function GET(req: Request) {
         supabase
           .from('attendance')
           .select(
-            'id, check_in_time, status, points_awarded, profiles!user_id(id, full_name, email, designation, clubs:club_id(name))',
+            'id, check_in_time, status, points_awarded, profiles!user_id(id, full_name, email, designation, access_role, clubs:club_id(name))',
           )
           .eq('event_id', eventId)
           .order('check_in_time', { ascending: true }),
