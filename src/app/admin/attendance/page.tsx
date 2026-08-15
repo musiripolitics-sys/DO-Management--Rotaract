@@ -129,18 +129,19 @@ export default function AttendancePage() {
     )
   }, [events, eventQuery])
 
-  // How many of each role were present — Presidents, Secretaries, District
-  // Officials, Members (everyone else is folded into "Others").
+  // Present counts. Club Presidents, club Secretaries and Members map to
+  // their own buckets; everyone else — DRR, ADRR, DRS, ADRS, chief sergeant,
+  // sergeant, admin, and the generic district_official — counts as a
+  // District Official. A null/unknown role defaults to member (app convention).
   const roleBreakdown = useMemo(() => {
-    const b = { president: 0, secretary: 0, district_official: 0, member: 0, other: 0 }
+    const b = { president: 0, secretary: 0, district_official: 0, member: 0 }
     if (!detail) return b
     for (const a of detail.attendees) {
-      const r = pickOne<Profile>(a.profiles)?.access_role
+      const r = pickOne<Profile>(a.profiles)?.access_role ?? 'member'
       if (r === 'president') b.president++
       else if (r === 'secretary') b.secretary++
-      else if (r === 'district_official') b.district_official++
       else if (r === 'member') b.member++
-      else b.other++
+      else b.district_official++
     }
     return b
   }, [detail])
@@ -353,7 +354,6 @@ export default function AttendancePage() {
                 <RoleStat label="Secretaries" count={roleBreakdown.secretary} />
                 <RoleStat label="District Officials" count={roleBreakdown.district_official} />
                 <RoleStat label="Members" count={roleBreakdown.member} />
-                {roleBreakdown.other > 0 && <RoleStat label="Others" count={roleBreakdown.other} />}
               </div>
             </div>
           )}
