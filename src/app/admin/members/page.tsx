@@ -16,6 +16,8 @@ import {
   Award,
   CalendarCheck,
   X,
+  KeyRound,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -86,6 +88,17 @@ export default function MembersManagement() {
   })
   const [isSaving, setIsSaving] = useState(false)
 
+  // Reset-password / delete are super-admin only.
+  const [isSuper, setIsSuper] = useState(false)
+  const [acting, setActing] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => setIsSuper(d?.role === 'super_admin'))
+      .catch(() => {})
+  }, [])
+
   /* ── Load ── */
   const load = async () => {
     setIsLoading(true)
@@ -146,6 +159,47 @@ export default function MembersManagement() {
       ri_id: m.ri_id ?? '',
       phone_number: m.phone_number ?? '',
     })
+  }
+
+  /* ── Super-admin actions ── */
+  const handleResetPassword = async (m: Member) => {
+    if (!confirm(`Reset ${m.full_name || 'this user'}'s password?\n\nThey'll be asked to set a new one the next time they sign in.`)) return
+    setActing(true)
+    try {
+      const res = await fetch(`/api/admin/members/${m.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset_password' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Reset failed')
+      toast.success('Password reset — the user will set a new one at next sign-in')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Reset failed')
+    } finally {
+      setActing(false)
+    }
+  }
+
+  const handleDeleteUser = async (m: Member) => {
+    if (!confirm(`Delete ${m.full_name || 'this user'} permanently?\n\nThis removes their account along with their attendance, points, and bookings. This cannot be undone.`)) return
+    setActing(true)
+    try {
+      const res = await fetch(`/api/admin/members/${m.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Delete failed')
+      toast.success(`${m.full_name || 'User'} deleted`)
+      setEditMember(null)
+      load()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setActing(false)
+    }
   }
 
   const handleSave = async () => {
@@ -424,6 +478,31 @@ export default function MembersManagement() {
                 <Input label="RI ID" value={editForm.ri_id} onChange={(v) => setEditForm({ ...editForm, ri_id: v })} placeholder="12345678" />
               </div>
             </div>
+
+            {/* Super-admin-only account actions */}
+            {isSuper && (
+              <div className="mt-5 pt-4 border-t border-[#1A1815]/8">
+                <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-[#1A1815]/40 mb-2.5">
+                  Super admin
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <button
+                    onClick={() => handleResetPassword(editMember)}
+                    disabled={acting}
+                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl border border-[#F2A410]/45 text-[#9B6A00] hover:bg-[#F2A410]/10 text-sm font-medium transition-colors disabled:opacity-40"
+                  >
+                    <KeyRound className="w-4 h-4" /> Reset password
+                  </button>
+                  <button
+                    onClick={() => handleDeleteUser(editMember)}
+                    disabled={acting}
+                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-300 text-red-600 hover:bg-red-50 text-sm font-medium transition-colors disabled:opacity-40"
+                  >
+                    <Trash2 className="w-4 h-4" /> Delete user
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3 mt-6">
               <button
